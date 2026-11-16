@@ -1,0 +1,6 @@
+.DS_Store
+.idea/
+
+# Business documents and survey data (kept local / in the private repo only)
+/*.pdf
+/*.png

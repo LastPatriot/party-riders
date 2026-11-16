@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Party Riders</title>
+  <!-- Apple‑style system fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="app.css" rel="stylesheet">
+  <style>
+    /* Apple‑inspired smooth tones */
+    :root {
+      --apple-bg: #f5f5f7;
+      --apple-primary: #4a1942; /* deep plum */
+      --apple-text: #1d1d1f;
+      --apple-muted: #6e6e73;
+      --apple-card-bg: rgba(255,255,255,.85);
+      --apple-radius: 12px;
+    }
+    html, body { background: var(--apple-bg); color: var(--apple-text); margin:0; font-family: "SF Pro Display", "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    header { position: sticky; top:0; backdrop-filter: blur(12px); background: rgba(255,255,255,.6); border-bottom: 1px solid rgba(0,0,0,.08); }
+    .nav-list { display:flex; gap:1.5rem; list-style:none; }
+    .nav-list a { color: var(--apple-primary); font-weight:500; text-decoration:none; }
+    .nav-list a:hover { opacity:.7; }
+    .primary-btn { background: var(--apple-primary); color:#fff; padding:.75rem 1.5rem; border:none; border-radius: var(--apple-radius); cursor:pointer; transition:transform .2s, opacity .2s; }
+    .primary-btn:active { transform:scale(.96); }
+    section { padding:4rem var(--gutter,2rem); max-width:1200px; margin:auto; }
+    .hero { text-align:center; padding-top:6rem; padding-bottom:6rem; }
+    .hero h1 { font-size: clamp(2.5rem,8vw,4.5rem); font-weight:700; line-height:1.1; color: var(--apple-primary); }
+    .hero p { font-size:1.125rem; color: var(--apple-muted); max-width:45rem; margin:auto; }
+    .card { background: var(--apple-card-bg); border-radius: var(--apple-radius); box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow:hidden; transition:transform .2s, box-shadow .2s; }
+    .card:hover { transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,0,0,.12); }
+    .grid { display:grid; gap:2rem; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); }
+    .footer { text-align:center; font-size:.875rem; color: var(--apple-muted); padding:2rem 0; border-top:1px solid rgba(0,0,0,.08); }
+  </style>
+</head>
+<body>
+  <header class="pr-gx">
+    <nav class="pr-gx" style="display:flex; align-items:center; justify-content:space-between; padding:1rem var(--gutter,2rem);">
+      <a href="#" class="pr-logo" style="font-weight:600; font-size:1.25rem; color:var(--apple-primary);">Party Riders</a>
+      <ul class="nav-list">
+        <li><a href="#hero">Home</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#rides">Rides</a></li>
+        <li><a href="#gallery">Gallery</a></li>
+        <li><a href="#testimonials">Stories</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+      <button class="primary-btn" id="cta-book">Book a Ride</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="hero" class="hero">
+      <h1>Ride the Party.</h1>
+      <p class="pr-lede">Your ultimate urban adventure—music, lights, and unforgettable vibes.</p>
+      <button class="primary-btn" onclick="document.getElementById('rides').scrollIntoView({behavior:'smooth'});">See Upcoming Rides</button>
+    </section>
+
+    <section id="about" class="pr-gx">
+      <h2 class="pr-heading" style="font-size:2rem; margin-bottom:1rem; color:var(--apple-primary);">Who We Are</h2>
+      <p>Party Riders is a collective of DJs, cyclists, and event‑makers who bring the club to the streets. We fuse sound, motion, and visual art to create unforgettable nocturnal journeys.</p>
+      <img src="images/about.jpg" alt="Team riding together" style="width:100%; max-width:600px; margin-top:2rem; border-radius:var(--apple-radius);"/>
+    </section>
+
+    <section id="rides" class="pr-gx">
+      <h2 class="pr-heading" style="font-size:2rem; margin-bottom:1rem; color:var(--apple-primary);">Upcoming Rides</h2>
+      <div class="grid">
+        <article class="card">
+          <img src="images/ride1.jpg" alt="Neon Night" style="width:100%; height:auto;">
+          <div style="padding:1rem;">
+            <h3 style="margin:0 0 .5rem; font-size:1.25rem;">Neon Night</h3>
+            <p style="margin:0 0 1rem; color:var(--apple-muted);">Friday, 9 PM – City Center Loop</p>
+            <a href="#" class="pr-link" style="font-weight:600;">Book now <span class="material-symbols-outlined">arrow_forward</span></a>
+          </div>
+        </article>
+        <!-- Repeat cards for other rides -->
+      </div>
+    </section>
+
+    <section id="gallery" class="pr-gx">
+      <h2 class="pr-heading" style="font-size:2rem; margin-bottom:1rem; color:var(--apple-primary);">Photo Gallery</h2>
+      <div class="pr-carousel" style="display:flex; overflow-x:auto; gap:1rem;">
+        <img src="images/gallery1.jpg" alt="Ride 1" style="height:200px; border-radius:var(--apple-radius); flex:none;">
+        <img src="images/gallery2.jpg" alt="Ride 2" style="height:200px; border-radius:var(--apple-radius); flex:none;">
+        <!-- more images -->
+      </div>
+    </section>
+
+    <section id="testimonials" class="pr-gx">
+      <h2 class="pr-heading" style="font-size:2rem; margin-bottom:1rem; color:var(--apple-primary);">Rider Stories</h2>
+      <blockquote style="font-style:italic; border-left:4px solid var(--apple-primary); padding-left:1rem; margin:1rem 0;">
+        “Best night of my life – the music, the city lights, the crew!” – <cite>Alex</cite>
+      </blockquote>
+      <!-- Additional testimonials -->
+    </section>
+
+    <section id="contact" class="pr-gx" style="background:rgba(0,0,0,.05); border-radius:var(--apple-radius); padding:2rem;">
+      <h2 class="pr-heading" style="font-size:2rem; margin-bottom:1rem; color:var(--apple-primary);">Get in Touch</h2>
+      <form id="contact-form" style="display:flex; flex-direction:column; gap:1rem; max-width:400px;">
+        <input type="text" placeholder="Name" required style="padding:.75rem; border:1px solid #ccc; border-radius:var(--apple-radius);">
+        <input type="email" placeholder="Email" required style="padding:.75rem; border:1px solid #ccc; border-radius:var(--apple-radius);">
+        <textarea placeholder="Message" required style="padding:.75rem; border:1px solid #ccc; border-radius:var(--apple-radius); height:120px;"></textarea>
+        <button type="submit" class="primary-btn">Send</button>
+      </form>
+      <div class="pr-social" style="margin-top:1.5rem; display:flex; gap:1rem;">
+        <a href="#"><span class="material-symbols-outlined">facebook</span></a>
+        <a href="#"><span class="material-symbols-outlined">instagram</span></a>
+        <a href="#"><span class="material-symbols-outlined">twitter</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Party Riders. All rights reserved.</p>
+    <nav class="footer-nav" style="margin-top:.5rem;">
+      <a href="#privacy">Privacy</a> • <a href="#terms">Terms</a>
+    </nav>
+  </footer>
+
+  <div id="layer"></div>
+  <script src="app.js"></script>
+</body>
+</html>
