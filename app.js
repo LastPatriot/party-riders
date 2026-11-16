@@ -1,12 +1,28 @@
-/* Party Riders — built on the Stitch "Regal Celebration" markup.
- * Planner workspace, client portal and guest RSVP in one page with hash routes and shared state.
+/* Party Riders — concierge workspace (pilot, service mode).
+ * During the pilot the founding team plans every event here for the host. One page, hash routes, shared state:
+ * - Workspace: events, planning sheet, Funding (Experience Passes + Flash-Pay), Guests, Gate (QR Digital Bouncer), approvals.
+ * - Client portal: the couple follows bookings, approves vendors and watches their guests fund the day.
+ * - Guest page: buy an Experience Pass, get a QR pass, spray the couple digitally.
  */
 (function () {
   "use strict";
 
   // ---------- Reference data ----------
   var TODAY = new Date("2026-11-03T12:00:00");
-  var PLANNER = { name: "Adanna Balogun", first: "Adanna", role: "Lead Planner", phone: "+234 802 555 0147" };
+  var PLANNER = { name: "Adanna Balogun", first: "Adanna", role: "Co-founder · Concierge", phone: "+234 802 555 0147" };
+
+  // Pricing from the marketing site: a percentage of what passes and gifts bring in.
+  var PLANS = { Standard: 0.025, Premium: 0.035, Elite: 0.05 };
+  var PLAN_NOTE = { Standard: "RSVP, gifting and digital spraying", Premium: "Passes, QR gate, vendor marketplace, Flash-Pay", Elite: "Premium plus negotiation and gate ushers on the day" };
+  var TIER_INFO = {
+    silver: { name: "Silver", perks: ["Entry and a reserved seat", "One meal token", "Digital spraying wallet"] },
+    gold: { name: "Gold", perks: ["Reserved table near the stage", "Meal and drinks token", "Aso-ebi collection at the gate"] },
+    vip: { name: "VIP", perks: ["Front tables beside the couple", "Premium menu and bar", "Souvenir pack and photo moment"] }
+  };
+  var GATE_NAMES = ["Mrs. F. Okafor", "Dr. Chinedu Eze", "Funke Akindele-Bello", "Ngozi Eze", "Babatunde Oladipo", "Kelechi Obi", "Tosin Adeyemi", "Ifeanyi Nwosu", "Bolaji Martins",
+    "Amaka Udeh", "Segun Bello", "Halima Yusuf", "Chioma Okeke", "Wale Ogunleye", "Ronke Ajayi", "Uche Nnaji", "Damilola Ade", "Ebere Okorie", "Kunle Afolabi", "Nneka Ibe"];
+  var CRASH_REASONS = ["No pass. Says he knows the bride's uncle", "Screenshot of another guest's pass", "Pass already scanned at 2:06 PM", "No pass. Came with a friend of a friend", "Expired link from a forwarded invite"];
+  var MARK = '<svg viewBox="0 0 38 22" aria-hidden="true"><path d="M11 3C6 3 3 6.6 3 11s3 8 8 8c6 0 10-16 16-16 5 0 8 3.6 8 8s-3 8-8 8c-6 0-10-16-16-16z" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="27" cy="11" r="2.6" fill="#C9A227"/></svg>';
 
   var VENDORS = [
     { id: "ofada", name: "Ofada & Co. Kitchens", cat: "Catering", area: "Yaba, Lagos", price: "₦3.5M–₦7.5M", rating: 4.9, reviews: 64, jobs: 31, img: "v-ofada",
@@ -150,31 +166,35 @@
           options: [{ vendor: "ofada", price: 4350000, img: "food-ofada", points: null }, { vendor: "itan", price: 3950000, img: "food-itan", points: null }] }
       ],
       guests: {
-        stats: { invited: 350, attending: 212, declined: 41, pending: 97 }, reminded: false,
+        // 298 coming: 286 bought a pass, 12 are on the family list (no pass needed).
+        stats: { invited: 350, attending: 298, declined: 24, pending: 28 }, reminded: false,
         rows: [
-          ["Chief Emeka Okonkwo", "+234 803 334 1120", "Bride's side", "Table 01 · High table", "attending", "paid"],
-          ["Mrs. Folashade Adebayo", "+234 803 555 9812", "Groom's side", "Table 01 · High table", "attending", "paid"],
-          ["Dr. Chinedu Eze", "+234 807 123 4567", "Bride's side", "Table 04", "attending", "paid"],
-          ["Funke Akindele-Bello", "+234 814 889 0012", "VIP / Friend", "Table 02 · VVIP lounge", "attending", "paid"],
-          ["Babatunde Oladipo", "+234 806 778 1102", "Groom's side", "Table 12", "attending", "unpaid"],
-          ["Nkemdilim Nwosu", "+234 812 777 6543", "Bride's side", "Table 07", "pending", "unpaid"],
-          ["Femi Adeleke", "+234 805 099 1234", "Groom's side", "Unassigned", "pending", "none"],
-          ["Zainab Ali-Hassan", "+234 818 222 3456", "VIP guest", "—", "declined", "none"],
-          ["Ngozi Eze", "+234 803 441 2219", "Bride's side", "Table 12", "attending", "paid"],
-          ["Yetunde Alabi", "+234 809 661 0042", "Groom's side", "Unassigned", "pending", "unpaid"]
+          ["Chief Emeka Okonkwo", "+234 803 334 1120", "Bride's side", "Table 01 · High table", "attending", "paid", "comp"],
+          ["Mrs. Folashade Adebayo", "+234 803 555 9812", "Groom's side", "Table 01 · High table", "attending", "paid", "comp"],
+          ["Dr. Chinedu Eze", "+234 807 123 4567", "Bride's side", "Table 04", "attending", "paid", "gold"],
+          ["Funke Akindele-Bello", "+234 814 889 0012", "VIP / Friend", "Table 02 · VVIP lounge", "attending", "paid", "vip"],
+          ["Babatunde Oladipo", "+234 806 778 1102", "Groom's side", "Table 12", "attending", "unpaid", "silver"],
+          ["Nkemdilim Nwosu", "+234 812 777 6543", "Bride's side", "Table 07", "pending", "unpaid", ""],
+          ["Femi Adeleke", "+234 805 099 1234", "Groom's side", "Unassigned", "pending", "none", ""],
+          ["Zainab Ali-Hassan", "+234 818 222 3456", "VIP guest", "—", "declined", "none", ""],
+          ["Ngozi Eze", "+234 803 441 2219", "Bride's side", "Table 12", "attending", "paid", "gold"],
+          ["Yetunde Alabi", "+234 809 661 0042", "Groom's side", "Unassigned", "pending", "unpaid", ""]
         ]
       },
       tasks: [
         { id: "t1", text: "Send caterer shortlist to Adaeze", event: "adaeze", go: "send-adaeze-i2", due: "Today", time: "11:30 AM", pri: "High priority", done: false },
+        { id: "t6", text: "Flash-Pay Gold Thread Decor from pass money", event: "adaeze", go: "event-adaeze-funding", due: "Today", time: "1:00 PM", pri: "", done: false },
         { id: "t2", text: "Find a cake vendor for Adaeze & Tunde", event: "adaeze", go: "event-adaeze-plan", due: "Today", time: "2:00 PM", pri: "", done: false },
         { id: "t3", text: "Send Aso Ebi payment reminders", event: "folake", go: "event-folake-plan", due: "Today", time: "4:30 PM", pri: "", done: false },
+        { id: "t7", text: "Launch Experience Passes for Aramide & Babatunde", event: "aramide", go: "event-aramide-funding", due: "Fri 6 Nov", time: "", pri: "", done: false },
         { id: "t4", text: "Close out Mama Bisi at 60", event: "bisi", go: "event-bisi-closeout", due: "Fri 6 Nov", time: "", pri: "", done: false },
         { id: "t5", text: "Confirm band sound check time", event: "zenvia", go: "event-zenvia-plan", due: "Fri 6 Nov", time: "", pri: "", done: false }
       ],
       activity: [
-        { icon: "photo_camera", text: "Adanna confirmed Lagoon Lens Studio for photo and film", when: "2 hours ago" },
-        { icon: "checkroom", text: "Aso Ebi fabric bundles delivered to both families", when: "Yesterday" },
-        { icon: "group", text: "48 more guests said yes this week", when: "2 days ago" }
+        { icon: "local_activity", text: "31 guests bought Experience Passes this week (₦1.2M)", when: "Today" },
+        { icon: "bolt", text: "Flash-Pay sent ₦4.5M to Eko Pearl Event Centre. Venue price locked", when: "Yesterday" },
+        { icon: "photo_camera", text: "Adanna confirmed Lagoon Lens Studio for photo and film", when: "2 days ago" },
+        { icon: "checkroom", text: "Aso Ebi fabric bundles delivered to both families", when: "3 days ago" }
       ],
       templates: TEMPLATES_SEED.map(function (t) { var c = Object.assign({}, t); c.from = null; return c; }),
       rsvp: null
@@ -182,7 +202,7 @@
   }
 
   // ---------- State ----------
-  var KEY = "party-riders-stitch-v1";
+  var KEY = "party-riders-concierge-v2";
   var S;
   try { S = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { S = null; }
   if (!S || !S.events) S = seed();
@@ -200,15 +220,49 @@
       aramide: { invite: "none", sent: "", pkg: "Partial planning", fee: 1500000, paid: 0, members: [], notes: [] },
       bisi: { invite: "accepted", sent: "1 Sep", pkg: "Partial planning", fee: 1300000, paid: 1300000, members: [], notes: [] }
     };
+    // Experience Pass funding per event: [price, cap, sold] for silver / gold / vip, Flash-Pay payouts, gate counts.
+    var F = {
+      adaeze: { plan: "Premium", on: true, goal: 12000000, t: [[25000, 200, 172], [40000, 110, 86], [75000, 40, 28]], gifts: 640000, paid: { i1: 4500000, i9: 400000 }, gate: [0, 0] },
+      folake: { plan: "Premium", on: true, goal: 6000000, t: [[20000, 120, 104], [35000, 60, 52], [60000, 20, 17]], gifts: 410000, paid: { f1: 1800000, f2: 2700000 }, gate: [0, 0] },
+      zenvia: { plan: "Elite", on: false, gate: [0, 0] },
+      kemi: { plan: "Premium", on: true, goal: 15000000, t: [[25000, 300, 61], [45000, 150, 22], [90000, 50, 6]], gifts: 85000, paid: {}, gate: [0, 0] },
+      aramide: { plan: "Premium", on: false, gate: [0, 0] },
+      bisi: { plan: "Premium", on: true, goal: 6000000, t: [[20000, 110, 110], [35000, 55, 52], [60000, 15, 15]], gifts: 1150000, paid: { m2: 2550000, m3: 1750000 }, gate: [172, 31] }
+    };
     S.events.forEach(function (e) {
       var d = D[e.id] || { invite: "none", sent: "", pkg: "Full planning", fee: 0, paid: 0, members: [], notes: [] };
       if (!e.client.invite) { e.client.invite = d.invite; e.client.sent = d.sent; }
       if (!e.members) e.members = d.members;
       if (!e.notes) e.notes = d.notes;
-      if (!e.eng) e.eng = { pkg: d.pkg, fee: d.fee, paid: d.paid };
+      if (!e.eng) e.eng = { fee: d.fee, paid: d.paid };
+      if (!e.fund) {
+        var f = F[e.id] || { plan: "Premium", on: false, gate: [0, 0] };
+        e.plan = e.plan || f.plan;
+        e.fund = suggestFund(e);
+        e.fund.on = f.on;
+        if (f.t) {
+          e.fund.goal = f.goal; e.fund.gifts = f.gifts; e.fund.paid = f.paid;
+          e.fund.tiers.forEach(function (t, i) { t.price = f.t[i][0]; t.cap = f.t[i][1]; t.sold = f.t[i][2]; });
+        }
+        e.fund.gate = { in: f.gate[0], out: f.gate[1], log: [] };
+      }
     });
     if (!S.vendorsExtra) S.vendorsExtra = [];
     if (!S.portal) S.portal = "adaeze";
+  }
+  // Suggested passes for an event: the guests cover about two thirds of the budget.
+  // Silver is priced at roughly two plates of food at the event's catering cost (the Jollof Index).
+  function plate(e) {
+    var c = e.items.filter(function (i) { return i.cat === "Catering"; })[0];
+    return c ? c.est / e.guests : e.budget * 0.23 / e.guests;
+  }
+  function round5k(n) { return Math.max(5000, Math.round(n / 5000) * 5000); }
+  function suggestFund(e) {
+    var silver = Math.max(15000, round5k(plate(e) * 2));
+    return { on: false, goal: Math.round(e.budget * 0.65 / 100000) * 100000, gifts: 0, paid: {}, gate: { in: 0, out: 0, log: [] },
+      tiers: [["silver", silver, 0.55], ["gold", round5k(silver * 1.6), 0.3], ["vip", round5k(silver * 3), 0.15]].map(function (t) {
+        return { id: t[0], price: t[1], cap: Math.round(e.guests * t[2]), sold: 0 };
+      }) };
   }
   enrich();
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
@@ -248,6 +302,43 @@
     e.items.forEach(function (i) { est += i.est; if (i.status === "confirmed") { committed += i.actual != null ? i.actual : i.est; confirmed++; } else if (i.status === "pending") review++; });
     return { committed: committed, est: est, remaining: e.budget - committed, confirmed: confirmed, review: review, total: e.items.length, pct: Math.min(100, committed / e.budget * 100) };
   }
+  // Money from guests: passes sold, the Party Riders fee for the event's plan, Flash-Pay payouts and what is left to pay vendors.
+  function fundOf(e) {
+    var f = e.fund, raised = 0, passes = 0, cap = 0, paidOut = 0;
+    f.tiers.forEach(function (t) { raised += t.price * t.sold; passes += t.sold; cap += t.cap; });
+    Object.keys(f.paid).forEach(function (k) { paidOut += f.paid[k]; });
+    var rate = PLANS[e.plan] || PLANS.Premium, fee = Math.round((raised + f.gifts) * rate);
+    return { on: f.on, raised: raised, passes: passes, cap: cap, goal: f.goal, gifts: f.gifts, rate: rate, fee: fee, feePasses: Math.round(raised * rate), paidOut: paidOut,
+      wallet: Math.max(0, raised - Math.round(raised * rate) - paidOut), pct: f.goal ? Math.min(100, raised / f.goal * 100) : 0, host: Math.max(0, e.budget - f.goal) };
+  }
+  function payAmount(it) { return it.actual != null ? it.actual : it.est; }
+  function tierChip(id) {
+    if (!id) return '<span class="pr-tier pr-t-none">No pass yet</span>';
+    if (id === "comp") return '<span class="pr-tier pr-t-comp">Family list</span>';
+    return '<span class="pr-tier pr-t-' + id + '">' + TIER_INFO[id].name + "</span>";
+  }
+  // Decorative QR: real finder patterns, deterministic modules from a seed string.
+  function qrSvg(seed) {
+    var n = 21, h = 2166136261, cells = [];
+    for (var k = 0; k < seed.length; k++) { h ^= seed.charCodeAt(k); h = Math.imul(h, 16777619); }
+    function rnd() { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; }
+    function finder(x, y) { // 1 = dark, 0 = light, -1 = not part of a finder pattern
+      var corners = [[0, 0], [14, 0], [0, 14]];
+      for (var c = 0; c < 3; c++) {
+        var dx = x - corners[c][0], dy = y - corners[c][1];
+        if (dx >= -1 && dx <= 7 && dy >= -1 && dy <= 7) {
+          if (dx < 0 || dy < 0 || dx > 6 || dy > 6) return 0;
+          return dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4) ? 1 : 0;
+        }
+      }
+      return -1;
+    }
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+      var f = finder(x, y), on = f === -1 ? rnd() > 0.52 : f === 1;
+      if (on) cells.push('<rect x="' + x + '" y="' + y + '" width="1" height="1"/>');
+    }
+    return '<svg viewBox="0 0 21 21" shape-rendering="crispEdges" role="img" aria-label="QR entry code">' + cells.join("") + "</svg>";
+  }
   function health(e) {
     var m = money(e), d = daysTo(e.date);
     if (e.completed) return e.closed ? "closed" : "closeout";
@@ -273,9 +364,11 @@
   var PILL_ON = "px-4 py-1.5 rounded-full text-[13px] font-semibold bg-on-surface text-white whitespace-nowrap transition-colors";
   var PILL_OFF = "px-4 py-1.5 rounded-full text-[13px] font-medium text-on-surface-variant hover:bg-surface-container whitespace-nowrap transition-colors";
 
-  var PKGS = ["Coordination only", "Partial planning", "Full planning"];
+  var BTN_PRIMARY = BTN + " pr-btn-gold";
+  function planOptions(sel) { return Object.keys(PLANS).map(function (p) { return '<option value="' + p + '"' + (p === sel ? " selected" : "") + ">" + p + " · " + (PLANS[p] * 100).toFixed(1).replace(".0", "") + "%</option>"; }).join(""); }
   function portalLink(e) { return "partyriders.app/p/" + e.id; }
-  function inviteText(e, name) { return "Hi " + name.split(" ")[0] + "! " + PLANNER.first + " from Party Riders here. Your portal for " + e.name + " is ready. Follow every booking and approve choices from your phone: " + portalLink(e); }
+  function passLink(e) { return "partyriders.app/e/" + e.id; }
+  function inviteText(e, name) { return "Hi " + name.split(" ")[0] + "! " + PLANNER.first + " from Party Riders here. Your portal for " + e.name + " is ready. Follow every booking, approve choices and watch your guests fund the day, all from your phone: " + portalLink(e); }
   function inviteChip(st) {
     var s = st === "accepted" ? ["bg-plum", "Joined"] : st === "sent" || st === "invited" ? ["border-2 border-gold", "Invite sent"] : ["bg-outline-variant", "Not invited"];
     return '<span class="inline-flex items-center gap-1.5 text-[13px] font-medium text-on-surface-variant whitespace-nowrap"><span class="w-2 h-2 rounded-full box-border ' + s[0] + '"></span>' + s[1] + "</span>";
@@ -329,7 +422,7 @@
     else if (r === "templates") { view = viewTemplates(); nav = "templates"; }
     else if (r === "clients") { view = viewClients(); nav = "clients"; }
     else if (r === "new-event") { view = viewNewEvent(); nav = "templates"; }
-    else if ((m = r.match(/^event-([a-z0-9]+)-(plan|guests|approvals|people|notes|closeout)$/)) && ev(m[1])) view = viewWorkspace(ev(m[1]), m[2]);
+    else if ((m = r.match(/^event-([a-z0-9]+)-(plan|funding|guests|gate|approvals|people|notes|closeout)$/)) && ev(m[1])) view = viewWorkspace(ev(m[1]), m[2]);
     else if ((m = r.match(/^send-([a-z0-9]+)-([a-z0-9-]+)$/)) && ev(m[1]) && itemOf(ev(m[1]), m[2])) view = viewSend(ev(m[1]), itemOf(ev(m[1]), m[2]));
     else view = viewEvents();
     var open = S.tasks.filter(function (t) { return !t.done; }).length;
@@ -345,21 +438,22 @@
     return '<aside style="view-transition-name:pr-side" class="hidden lg:flex fixed left-0 top-0 h-full w-72 bg-surface-container-lowest/80 backdrop-blur-xl border-r border-black/[0.05] z-50 flex-col justify-between py-space-lg">' +
         '<div class="flex flex-col gap-space-xl px-space-lg">' + logo() +
           '<div class="flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm text-outline px-space-sm mb-space-xs">Workspace</span><nav class="flex flex-col gap-space-xs" aria-label="Workspace">' + links.map(function (l) { return link(l); }).join("") + "</nav></div></div>" +
-        '<div class="px-space-lg flex flex-col gap-space-sm"><div class="bg-surface-container-low rounded-xl p-space-md flex flex-col gap-space-xs"><div class="flex items-center gap-space-xs">' + ic("workspace_premium", "text-headline-sm text-secondary") +
-          '<span class="font-label-md text-label-md text-on-surface font-semibold">Lagos Concierge</span></div><p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">' + S.events.filter(function (e) { return !e.completed; }).length + " celebrations in production.</p>" +
-          '<button class="self-start font-label-sm text-label-sm text-outline underline underline-offset-2 hover:text-primary mt-1" data-act="reset">Reset sample data</button></div></div>' +
+        '<div class="px-space-lg flex flex-col gap-space-sm"><div class="bg-surface-container-low rounded-xl p-space-md flex flex-col gap-space-xs"><span class="pr-pilot self-start">Pilot · Service mode</span>' +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">Our founding team plans every event here with the host. Planning opens to everyone after the pilot.</p>' +
+          '<p class="font-label-sm text-label-sm text-outline">' + S.events.filter(function (e) { return !e.completed; }).length + " celebrations in production · Lagos</p>" +
+          '<div class="flex flex-wrap gap-3 mt-1"><a href="index.html" class="font-label-sm text-label-sm text-outline underline underline-offset-2 hover:text-primary">Website</a><button class="font-label-sm text-label-sm text-outline underline underline-offset-2 hover:text-primary" data-act="reset">Reset sample data</button></div></div></div>' +
       "</aside>" +
       '<div class="lg:pl-72">' +
         '<header style="view-transition-name:pr-head" class="pr-head pr-glass fixed top-0 left-0 lg:left-72 right-0 h-20 border-b border-black/[0.05] z-40 flex items-center justify-between gap-space-md pr-gx">' +
           '<div class="flex items-center gap-space-md min-w-0 flex-1">' +
-            '<a href="#events" class="lg:hidden w-9 h-9 rounded-xl bg-plum flex items-center justify-center text-gold shrink-0" aria-label="Party Riders home">' + ic("celebration", "text-[20px]") + "</a>" +
+            '<a href="#events" class="lg:hidden pr-mark" aria-label="Party Riders home">' + MARK + "</a>" +
             '<div class="relative flex items-center w-full max-w-sm">' + ic("search", "absolute left-space-md text-outline pointer-events-none text-headline-sm") +
               '<label for="global-q" class="sr-only">Search events and vendors</label><input id="global-q" data-input="global-q" autocomplete="off" class="w-full h-11 pl-12 pr-space-md bg-surface-container-lowest border-0 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary shadow-sm" placeholder="Search events, vendors…" value="' + esc(ui.search) + '">' +
               (results ? '<div class="absolute top-full mt-2 left-0 right-0 bg-surface-container-lowest rounded-xl shadow-xl p-space-xs flex flex-col z-50">' + results + "</div>" : "") +
             "</div></div>" +
           '<div class="flex items-center gap-space-md sm:gap-space-lg shrink-0">' +
-            '<a href="#new-event" class="' + BTN + '">' + ic("add", "text-title-md") + '<span class="hidden sm:inline">New Event</span></a>' +
-            '<div class="flex items-center gap-space-md"><div class="hidden md:flex flex-col text-right"><span class="font-title-md text-title-md text-on-surface leading-tight font-semibold">' + PLANNER.name + '</span><span class="font-label-sm text-label-sm text-secondary font-bold flex items-center justify-end gap-1"><span class="inline-block w-1.5 h-1.5 rounded-full bg-secondary"></span>Lagos HQ</span></div>' +
+            '<a href="#new-event" class="' + BTN_PRIMARY + '">' + ic("add", "text-title-md") + '<span class="hidden sm:inline">New event</span></a>' +
+            '<div class="flex items-center gap-space-md"><div class="hidden md:flex flex-col text-right"><span class="font-title-md text-title-md text-on-surface leading-tight font-semibold">' + PLANNER.name + '</span><span class="font-label-sm text-label-sm text-secondary font-bold flex items-center justify-end gap-1"><span class="inline-block w-1.5 h-1.5 rounded-full bg-secondary"></span>' + PLANNER.role + "</span></div>" +
               photo("planner", "w-9 h-9 rounded-full", "person", "Adanna Balogun") + "</div>" +
           "</div></header>" +
         '<nav style="view-transition-name:pr-mnav" class="lg:hidden fixed top-20 left-0 right-0 z-30 pr-glass border-b border-black/[0.05] flex gap-space-xs overflow-x-auto pr-gx py-space-xs" aria-label="Workspace">' + links.map(function (l) { return link(l, true); }).join("") + "</nav>" +
@@ -367,8 +461,8 @@
       "</div>";
   }
   function logo() {
-    return '<a href="#events" class="flex items-center gap-space-sm"><span class="w-9 h-9 rounded-xl bg-plum flex items-center justify-center text-gold shadow-[0_2px_8px_rgba(74,25,66,0.12)]">' + ic("celebration", "text-[20px]") +
-      '</span><span class="flex flex-col"><span class="font-title-md text-title-md tracking-tight text-primary font-bold">Party Riders</span><span class="font-label-sm text-label-sm text-secondary font-semibold">Celebration Studio</span></span></a>';
+    return '<a href="#events" class="flex items-center gap-space-sm"><span class="pr-mark">' + MARK +
+      '</span><span class="flex flex-col"><span class="font-title-md text-title-md tracking-tight text-primary font-bold">Party Riders</span><span class="font-label-sm text-label-sm text-secondary font-semibold">Concierge workspace</span></span></a>';
   }
   function searchResults() {
     var q = ui.search.trim().toLowerCase();
@@ -399,7 +493,8 @@
     var done = S.events.filter(function (e) { return e.completed; });
     var types = ["All"].concat(active.map(function (e) { return e.type; }).filter(function (t, i, a) { return a.indexOf(t) === i; }));
     var shown = active.filter(function (e) { return ui.evFilter === "All" || e.type === ui.evFilter; });
-    var value = active.reduce(function (s, e) { return s + e.budget; }, 0);
+    var raised = 0, passes = 0, paidOut = 0;
+    active.forEach(function (e) { var f = fundOf(e); if (f.on) { raised += f.raised; passes += f.passes; paidOut += f.paidOut; } });
     var pending = S.approvals.filter(function (a) { return a.status !== "approved"; }).length;
     var today = S.tasks.filter(function (t) { return !t.done && t.due === "Today"; }).length;
     var hour = new Date().getHours(), greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -408,14 +503,14 @@
       return '<button data-act="ev-filter" data-id="' + t + '" aria-pressed="' + (ui.evFilter === t) + '" class="px-space-md py-space-xs rounded-full font-label-md text-label-md font-semibold transition-all ' +
         (ui.evFilter === t ? "bg-on-surface text-white" : "text-on-surface-variant hover:bg-surface-container") + '">' + (t === "All" ? "All" : t + "s") + " (" + n + ")</button>";
     }).join("");
-    return pageHead(greet + ", " + PLANNER.first, "All events.", "Every celebration in production, from Lekki to Ibadan.",
-        '<a class="' + BTN_GOLD + '" href="#new-event">' + ic("add_circle", "text-title-md") + "Create Event</a>") +
+    return pageHead(greet + ", " + PLANNER.first, "All events.", "Every celebration the concierge team is running in the pilot. Guests fund each one with Experience Passes, and vendors are paid from that money with Flash-Pay.",
+        '<a class="' + BTN_PRIMARY + '" href="#new-event">' + ic("add_circle", "text-title-md") + "Create event</a>") +
       '<div class="flex flex-wrap gap-space-sm" role="group" aria-label="Filter events">' + pills + "</div>" +
       '<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5" data-stagger>' +
-        statTile("theater_comedy", "bg-surface-container text-primary", "Active events", active.length, "Productions") +
-        statTile("payments", "bg-secondary-container/30 text-secondary", "Production value", short(value), "") +
-        statTile("task_alt", "bg-primary-fixed/40 text-primary-container", "Pending approvals", pending, pending ? "With clients" : "") +
-        statTile("assignment_late", "bg-secondary-fixed/40 text-on-secondary-container", "Due today", today, "Tasks") +
+        statTile("theater_comedy", "bg-surface-container text-primary", "Active events", active.length, "In production") +
+        statTile("local_activity", "bg-secondary-container/30 text-secondary", "Raised by guests", short(raised), passes.toLocaleString("en-NG") + " Experience Passes sold") +
+        statTile("bolt", "bg-secondary-container/30 text-secondary", "Paid with Flash-Pay", short(paidOut), "Vendors paid early, prices locked") +
+        statTile("task_alt", "bg-primary-fixed/40 text-primary-container", "Pending approvals", pending, pending ? "With clients · " + today + " tasks due today" : today + " tasks due today") +
       "</section>" +
       '<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">' +
         '<div class="min-w-0 xl:col-span-8 flex flex-col gap-6"><div class="flex items-center gap-3"><h2 class="font-headline-md text-headline-md text-primary font-bold">Event Roster</h2><span class="bg-surface-container px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold text-on-surface-variant">' + shown.length + " active</span></div>" +
@@ -437,11 +532,19 @@
         '<div class="flex flex-wrap items-center justify-between gap-2"><span class="text-[13px] font-semibold text-secondary">' + esc(TYPE_LABEL[e.type] || e.type) + (e.completed ? " · Finished " + fmtDate(e.date) : " · " + d + " days to go") + "</span>" +
           '<span class="inline-flex items-center gap-1.5 text-[13px] font-medium text-on-surface-variant"><span class="w-2 h-2 rounded-full ' + dot[0] + '"></span>' + dot[1] + "</span></div>" +
         '<div><h3 class="text-[24px] leading-tight font-bold tracking-[-0.025em] text-primary"><a href="' + href + '" class="hover:opacity-80 transition-opacity">' + esc(e.short) + '</a></h3><p class="text-[14px] text-on-surface-variant mt-1">' + fmtDate(e.date) + " · " + esc(e.venue) + "</p></div>" +
-        '<div class="flex flex-col gap-1.5"><div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden"><div class="h-full rounded-full ' + (m.pct > 90 ? "bg-gold" : "bg-plum") + ' pr-bar" style="width:' + m.pct.toFixed(1) + '%"></div></div>' +
-          '<div class="flex flex-wrap justify-between gap-2 text-[13px] text-outline tabular-nums"><span><b class="text-on-surface font-semibold">' + short(m.committed) + "</b> of " + short(e.budget) + " committed</span><span>" + open + " open items · " + e.guests + " guests</span></div></div>" +
+        cardBars(e, m, open) +
         '<div class="flex flex-wrap items-center gap-2 mt-auto pt-1"><a class="' + BTN + '" href="' + href + '">' + (e.completed && !e.closed ? "Close out" : "Open workspace") + "</a>" +
           (true ? '<button class="pr-link" data-act="client-view" data-ev="' + e.id + '">Client view ' + ic("chevron_right", "text-[18px]") + "</button>" : "") + "</div>" +
       "</div></article>";
+  }
+  // Two lines on every event card: what guests have raised, and what is booked against the budget.
+  function cardBars(e, m, open) {
+    var f = fundOf(e);
+    var fundLine = f.on
+      ? '<div class="flex flex-col gap-1.5"><div class="pr-meter thin"><i style="width:' + f.pct.toFixed(1) + '%"></i></div><div class="flex flex-wrap justify-between gap-2 text-[13px] text-outline tabular-nums"><span><b class="text-on-surface font-semibold">' + short(f.raised) + "</b> raised of " + short(f.goal) + " guest goal</span><span>" + f.passes + " passes</span></div></div>"
+      : '<div class="flex flex-wrap justify-between gap-2 text-[13px] text-outline"><span class="pr-chip-muted">' + ic("local_activity", "text-[15px]") + (e.type === "Corporate" ? "Company-funded · QR invites only" : "Experience Passes not launched") + "</span></div>";
+    return fundLine + '<div class="flex flex-col gap-1.5"><div class="pr-meter thin"><i class="plum" style="width:' + m.pct.toFixed(1) + '%"></i></div>' +
+      '<div class="flex flex-wrap justify-between gap-2 text-[13px] text-outline tabular-nums"><span><b class="text-on-surface font-semibold">' + short(m.committed) + "</b> of " + short(e.budget) + " budget booked</span><span>" + open + " open items · " + e.guests + " guests</span></div></div>";
   }
   function dueToday() {
     var list = S.tasks.filter(function (t) { return t.due === "Today"; });
@@ -470,12 +573,12 @@
       (done.length ? '<section class="' + CARD + ' p-6 flex flex-col gap-2"><h2 class="text-[19px] font-bold tracking-[-0.02em] text-on-surface">Done <span class="text-outline font-medium">' + done.length + '</span></h2><div class="flex flex-col divide-y divide-surface-container">' + done.map(taskRow).join("") + "</div></section>" : "");
   }
   function viewClients() {
-    return pageHead("", "Clients", "Invite each client to their portal, add family, and keep track of fees.", "") +
+    return pageHead("", "Clients", "Invite each host to their portal, add family, and keep track of the plan and concierge fee.", "") +
       '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" data-stagger>' + S.events.map(function (e) {
         var c = e.client, g = e.eng, tabHref = "#event-" + e.id + "-people";
         return '<article class="' + CARD + ' p-6 flex flex-col gap-4"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-11 h-11 rounded-full bg-surface-container flex items-center justify-center text-on-surface font-semibold text-[13px] shrink-0">' + initials(c.name) + '</div>' +
           '<div class="min-w-0"><h3 class="text-[17px] font-semibold text-on-surface">' + esc(c.name) + '</h3><p class="text-[13px] text-outline truncate">' + esc(e.name) + "</p></div></div>" + inviteChip(c.invite === "none" ? "none" : c.invite) + "</div>" +
-          '<dl class="grid grid-cols-3 gap-2 text-[13px]"><div><dt class="text-outline">Package</dt><dd class="font-semibold text-on-surface">' + esc(g.pkg) + '</dd></div><div><dt class="text-outline">Fee</dt><dd class="font-semibold text-on-surface tabular-nums">' + short(g.fee) + '</dd></div><div><dt class="text-outline">Payment</dt><dd class="font-semibold text-on-surface">' + payState(g) + "</dd></div></dl>" +
+          '<dl class="grid grid-cols-3 gap-2 text-[13px]"><div><dt class="text-outline">Plan</dt><dd class="font-semibold text-on-surface">' + esc(e.plan) + " · " + (PLANS[e.plan] * 100).toFixed(1).replace(".0", "") + '%</dd></div><div><dt class="text-outline">Concierge fee</dt><dd class="font-semibold text-on-surface tabular-nums">' + short(g.fee) + '</dd></div><div><dt class="text-outline">Payment</dt><dd class="font-semibold text-on-surface">' + payState(g) + "</dd></div></dl>" +
           '<p class="text-[13px] text-outline">' + (e.members.length ? e.members.length + " family member" + (e.members.length > 1 ? "s" : "") + " · " + e.members.map(function (m) { return esc(m.name.split(" ")[0]); }).join(", ") : "No family added") + "</p>" +
           '<div class="flex flex-wrap gap-2 mt-auto">' + (c.invite === "none" ? '<button class="' + BTN + '" data-act="invite-client" data-ev="' + e.id + '">Send invite</button>' : c.invite === "sent" ? '<button class="' + BTN_SOFT + '" data-act="invite-client" data-ev="' + e.id + '">Resend invite</button>' : '<button class="' + BTN_SOFT + '" data-act="client-view" data-ev="' + e.id + '">Open portal</button>') +
           '<a class="' + BTN_SOFT + '" href="' + tabHref + '">Manage</a></div></article>';
@@ -486,7 +589,7 @@
   function viewWorkspace(e, tab) {
     var m = money(e), d = daysTo(e.date);
     var openA = S.approvals.filter(function (a) { return a.event === e.id && a.status !== "approved"; }).length;
-    var tabs = [["plan", "Planning sheet"], ["guests", "Guests"], ["approvals", "Approvals"], ["people", "People"], ["notes", "Notes"]];
+    var tabs = [["plan", "Planning sheet"], ["funding", "Funding"], ["guests", "Guests"], ["gate", "Gate"], ["approvals", "Approvals"], ["people", "People"], ["notes", "Notes"]];
     if (e.completed) tabs.push(["closeout", "Close-out"]);
     var milestone = Math.round(m.confirmed / m.total * 100);
     var hero = '<section class="relative rounded-[28px] overflow-hidden h-[420px] sm:h-[360px] pr-soft">' + photo(e.img, "absolute inset-0 w-full h-full pr-kenburns", "celebration", "") +
@@ -504,9 +607,9 @@
           (t[0] === "approvals" && openA ? '<span class="min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold flex items-center justify-center ' + "bg-primary-container text-white" + '">' + openA + "</span>" : "") + "</a>";
       }).join("") + "</nav></div>";
     var facts = '<div class="' + CARD + ' grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-surface-container overflow-hidden">' +
-      metric("groups", "Guests", e.guests + (e.vip ? " · " + e.vip + " VIP" : "")) + metric("assignment_ind", "Lead planner", PLANNER.name) + metric("person", "Client", e.client.name) +
+      metric("groups", "Guests", e.guests + (e.vip ? " · " + e.vip + " VIP" : "")) + metric("assignment_ind", "Concierge", PLANNER.name) + metric("person", "Host", e.client.name) +
       '<div class="p-5 flex flex-col gap-2"><span class="text-[12px] text-outline font-medium">Bookings confirmed</span><span class="text-[17px] font-semibold text-on-surface tabular-nums">' + m.confirmed + " of " + m.total + '</span><div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden"><div class="bg-plum h-full rounded-full pr-bar" style="width:' + milestone + '%"></div></div></div></div>';
-    var body = tab === "people" ? tabPeople(e) : tab === "notes" ? tabNotes(e) : tab === "guests" ? tabGuests(e) : tab === "approvals" ? tabApprovals(e) : tab === "closeout" && e.completed ? tabCloseout(e) : tabPlan(e, m);
+    var body = tab === "people" ? tabPeople(e) : tab === "notes" ? tabNotes(e) : tab === "guests" ? tabGuests(e) : tab === "funding" ? tabFunding(e) : tab === "gate" ? tabGate(e) : tab === "approvals" ? tabApprovals(e) : tab === "closeout" && e.completed ? tabCloseout(e) : tabPlan(e, m);
     return hero + local + (tab === "plan" ? facts : "") + body;
   }
 
@@ -536,15 +639,15 @@
           '<div class="flex flex-col gap-1"><label for="mb-role" class="' + LABEL + '">Access</label><select id="mb-role" class="' + INPUT + '"><option value="viewer">View only</option><option value="approver">Can approve</option></select></div>' +
           '<p id="mb-err" role="alert" class="sm:col-span-2 text-[13px] text-error"></p><div class="sm:col-span-2"><button type="submit" class="' + BTN + '">' + ic("person_add", "text-[18px]") + "Send invite</button></div></form></section>" +
       '</div><aside class="min-w-0 xl:col-span-4 flex flex-col gap-space-lg"><section class="' + CARD + ' p-6 flex flex-col gap-4"><div class="flex items-center justify-between"><h2 class="text-[19px] font-bold tracking-[-0.02em] text-on-surface">Engagement</h2><span class="text-[13px] font-medium text-on-surface-variant">' + payState(g) + "</span></div>" +
-        '<div class="flex flex-col gap-1"><label for="eng-pkg" class="' + LABEL + '">Package</label><select id="eng-pkg" data-act="eng-pkg" data-ev="' + e.id + '" class="' + INPUT + '">' + PKGS.map(function (p) { return "<option" + (p === g.pkg ? " selected" : "") + ">" + p + "</option>"; }).join("") + "</select></div>" +
-        '<div class="flex flex-col gap-1"><label for="eng-fee" class="' + LABEL + '">Planning fee (₦)</label><input id="eng-fee" type="number" min="0" inputmode="numeric" data-input="eng-fee" data-ev="' + e.id + '" class="' + INPUT + ' tabular-nums" value="' + g.fee + '"></div>' +
+        '<div class="flex flex-col gap-1"><label for="eng-plan" class="' + LABEL + '">Plan</label><select id="eng-plan" data-act="eng-plan" data-ev="' + e.id + '" class="' + INPUT + '">' + planOptions(e.plan) + '</select><span class="text-[12px] text-outline">' + PLAN_NOTE[e.plan] + "</span></div>" +
+        '<div class="flex flex-col gap-1"><label for="eng-fee" class="' + LABEL + '">Concierge fee during the pilot (₦)</label><input id="eng-fee" type="number" min="0" inputmode="numeric" data-input="eng-fee" data-ev="' + e.id + '" class="' + INPUT + ' tabular-nums" value="' + g.fee + '"></div>' +
         '<div class="grid grid-cols-2 gap-3"><div class="bg-surface-container-low rounded-2xl p-4"><span class="' + LABEL + '">Paid</span><div class="text-[17px] font-semibold tabular-nums">' + naira(g.paid) + '</div></div><div class="bg-surface-container-low rounded-2xl p-4"><span class="' + LABEL + '">Balance</span><div class="text-[17px] font-semibold tabular-nums">' + naira(bal) + "</div></div></div>" +
         '<div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-plum rounded-full" style="width:' + (g.fee ? Math.min(100, g.paid / g.fee * 100) : 0).toFixed(1) + '%"></div></div>' +
         '<form id="pay-form" data-ev="' + e.id + '" class="flex gap-2 items-end" novalidate><div class="flex flex-col gap-1 flex-1 min-w-0"><label for="pay-amt" class="' + LABEL + '">Record a payment (₦)</label><input id="pay-amt" type="number" min="1" inputmode="numeric" class="' + INPUT + ' tabular-nums" placeholder="' + (bal || 0) + '"></div><button type="submit" class="' + BTN_SOFT + ' h-11">Record</button></form>' +
-        '<p class="text-[12px] text-outline">Vendor commission is tracked separately on each booking.</p></section></aside></div>';
+        '<p class="text-[12px] text-outline">The plan percentage is taken from passes and gifts, never charged upfront. <a class="pr-link text-[12px]" href="#event-' + e.id + '-funding">See Funding</a></p></section></aside></div>';
   }
   function tabNotes(e) {
-    return '<section class="' + CARD + ' p-6 flex flex-col gap-4 max-w-3xl"><div class="flex items-center gap-2 text-[13px] text-on-surface-variant font-medium">' + ic("lock", "text-[18px]") + "Only Party Riders planners see these notes. Clients, family and vendors never do.</div>" +
+    return '<section class="' + CARD + ' p-6 flex flex-col gap-4 max-w-3xl"><div class="flex items-center gap-2 text-[13px] text-on-surface-variant font-medium">' + ic("lock", "text-[18px]") + "Only the Party Riders concierge team sees these notes. Clients, family and vendors never do.</div>" +
       '<form id="note-form" data-ev="' + e.id + '" class="flex flex-col gap-2" novalidate><label for="note-text" class="sr-only">New note</label><textarea id="note-text" rows="3" class="w-full p-4 bg-surface-container-low border-0 rounded-2xl text-[15px] focus:outline-none focus:ring-2 focus:ring-plum/30" placeholder="Add a note for the team, e.g. who prefers what, venue rules, family sensitivities"></textarea><div><button type="submit" class="' + BTN + '">' + ic("note_add", "text-[18px]") + "Add note</button></div></form>" +
       '<div class="flex flex-col divide-y divide-surface-container">' + (e.notes.length ? e.notes.map(function (n) {
         return '<div class="py-4 flex gap-3"><div class="w-8 h-8 rounded-full bg-surface-container text-[12px] font-semibold flex items-center justify-center shrink-0">AB</div><div class="flex-1 min-w-0"><div class="text-[13px] text-outline">' + PLANNER.name + " · " + esc(n.when) + '</div><p class="text-[15px] text-on-surface whitespace-pre-line">' + esc(n.text) + '</p></div><button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-outline self-start" data-act="note-delete" data-ev="' + e.id + '" data-id="' + n.id + '" aria-label="Delete note">' + ic("delete", "text-[18px]") + "</button></div>";
@@ -592,6 +695,12 @@
         '<div class="flex flex-col gap-space-md"><div class="flex flex-col"><span class="' + LABEL + '">Total approved budget</span><span class="font-currency-display text-currency-display text-primary font-bold mt-1 tabular-nums">' + naira(e.budget) + "</span></div>" +
           budgetBox("Committed", vendorsConfirmed + " of " + m.total + " vendors", naira(m.committed), Math.round(m.pct) + "% of total", "text-primary", "text-tertiary") +
           budgetBox("Remaining balance", m.est > e.budget ? "Plan is " + short(m.est - e.budget) + " over" : "Plan fits the budget", naira(m.remaining), Math.round(100 - m.pct) + "% unallocated", "text-secondary", m.est > e.budget ? "text-error" : "text-on-surface-variant") +
+          (function () {
+            var f = fundOf(e);
+            return f.on ? budgetBox("Funded by guests", f.passes + " Experience Passes", naira(f.raised), Math.round(f.raised / e.budget * 100) + "% of budget", "text-primary", "text-tertiary") +
+                '<a href="#event-' + e.id + '-funding" class="pr-link self-start">' + naira(f.wallet) + " ready for Flash-Pay" + ic("chevron_right", "text-[18px]") + "</a>"
+              : '<a href="#event-' + e.id + '-funding" class="pr-callout plum">' + ic("local_activity", "text-[20px]") + "<span><b>Passes aren't live.</b> Launch Experience Passes so guests fund this budget.</span></a>";
+          })() +
           '<div class="flex flex-col gap-2 pt-1"><div class="w-full bg-surface-container rounded-full h-3 flex overflow-hidden"><div class="bg-plum h-full" style="width:' + m.pct.toFixed(1) + '%"></div><div class="bg-gold h-full" style="width:' + pPct.toFixed(1) + '%"></div></div>' +
           '<div class="flex items-center justify-between text-label-sm font-label-sm text-outline pt-0.5"><span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-plum inline-block"></span>Committed</span><span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-gold inline-block"></span>Pending</span><span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-surface-dim inline-block"></span>Buffer</span></div></div></div>' +
         '<div class="pt-space-md border-t border-surface-container flex flex-col gap-space-md"><h4 class="font-label-md text-label-md font-bold text-on-surface">Category allocation</h4>' + allocRows.map(function (c) {
@@ -604,28 +713,117 @@
   }
 
   function tabGuests(e) {
-    if (e.id !== "adaeze") return '<div class="' + CARD + ' p-space-2xl flex flex-col items-center gap-space-sm text-center">' + ic("mail", "text-[40px] text-outline-variant") + '<h3 class="font-title-md text-title-md text-on-surface">Invitations haven\'t gone out yet</h3><p class="font-body-sm text-body-sm text-outline">The guest list opens here once ' + esc(e.client.short) + " shares it.</p></div>";
-    var g = S.guests, st = g.stats, q = ui.guestQuery.toLowerCase();
+    if (e.id !== "adaeze") {
+      var fo = fundOf(e);
+      return '<div class="' + CARD + ' p-space-2xl flex flex-col items-center gap-space-sm text-center">' + ic("mail", "text-[40px] text-outline-variant") + '<h3 class="font-title-md text-title-md text-on-surface">The guest list isn\'t imported yet</h3><p class="font-body-sm text-body-sm text-outline max-w-md">' +
+        (fo.on ? fo.passes + " guests have already bought passes from the event link. The full list appears here once " + esc(e.client.short) + " shares the family contacts." : "The guest list opens here once " + esc(e.client.short) + " shares it.") + "</p></div>";
+    }
+    var g = S.guests, st = g.stats, q = ui.guestQuery.toLowerCase(), f = fundOf(e), comp = st.attending - f.passes;
     var rows = g.rows.filter(function (r) { return (ui.guestFilter === "all" || r[4] === ui.guestFilter) && (!q || (r[0] + r[1] + r[3]).toLowerCase().indexOf(q) >= 0); });
     var R = { attending: ["text-on-surface-variant", "check_circle", "Attending"], pending: ["text-on-surface-variant", "schedule", "Pending"], declined: ["text-on-surface-variant", "cancel", "Declined"] };
     var A = { paid: ["text-tertiary", "Paid"], unpaid: ["text-secondary", "Awaiting payment"], none: ["text-outline", "Not ordered"] };
     return '<section class="grid grid-cols-2 xl:grid-cols-4 gap-5">' +
-        statTile("mail", "bg-surface-container text-primary", "Invited", st.invited, "") + statTile("how_to_reg", "bg-tertiary-fixed/50 text-tertiary-container", "Attending", st.attending, Math.round(st.attending / st.invited * 100) + "%") +
-        statTile("schedule", "bg-secondary-container/30 text-secondary", "Pending", st.pending, "") + statTile("event_busy", "", "Declined", st.declined, "") + "</section>" +
+        statTile("mail", "bg-surface-container text-primary", "Invited", st.invited, st.declined + " declined") + statTile("how_to_reg", "bg-tertiary-fixed/50 text-tertiary-container", "Coming", st.attending, Math.round(st.attending / st.invited * 100) + "% of invited") +
+        statTile("local_activity", "bg-secondary-container/30 text-secondary", "Passes bought", f.passes, (comp > 0 ? comp + " more on the family list" : "Everyone coming has a pass")) + statTile("schedule", "", "Not replied", st.pending, "Reminders go out on WhatsApp") + "</section>" +
       '<div class="' + CARD + ' p-space-md flex flex-wrap items-center justify-between gap-space-sm"><div class="flex items-center gap-space-xs overflow-x-auto" role="group" aria-label="RSVP">' +
         [["all", "All guests"], ["attending", "Attending"], ["pending", "Pending"], ["declined", "Declined"]].map(function (f) { return '<button data-act="guest-filter" data-id="' + f[0] + '" aria-pressed="' + (ui.guestFilter === f[0]) + '" class="' + (ui.guestFilter === f[0] ? PILL_ON : PILL_OFF) + '">' + f[1] + "</button>"; }).join("") + "</div>" +
         '<div class="flex flex-wrap items-center gap-space-sm"><div class="relative">' + ic("search", "absolute left-3 top-2.5 text-outline text-headline-sm") + '<label for="guest-q" class="sr-only">Search guests</label><input id="guest-q" data-input="guest-q" class="h-10 pl-10 pr-space-md bg-surface-container-low border-0 rounded-xl font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary w-56" placeholder="Search name, phone or table" value="' + esc(ui.guestQuery) + '"></div>' +
-        '<button class="' + BTN_SOFT + '" data-act="preview-rsvp">' + ic("visibility", "text-title-md") + "Preview invitation</button>" +
+        '<button class="' + BTN_SOFT + '" data-act="preview-rsvp">' + ic("visibility", "text-title-md") + "Preview guest page</button>" +
         (g.reminded ? '<button class="' + BTN + '" disabled>' + ic("done_all", "text-title-md") + "Reminded today</button>" : '<button class="' + BTN + '" data-act="remind">' + ic("chat", "text-title-md") + "Send WhatsApp reminders (" + st.pending + ")</button>") + "</div></div>" +
-      '<div class="' + CARD + ' overflow-hidden"><div class="relative overflow-x-auto"><table class="w-full text-left border-collapse min-w-[760px]"><thead><tr class="text-outline text-[12px] font-medium border-b border-surface-container"><th class="py-space-md px-space-md font-semibold">Guest &amp; contact</th><th class="py-space-md px-space-md font-semibold">Side</th><th class="py-space-md px-space-md font-semibold">Table</th><th class="py-space-md px-space-md font-semibold">RSVP</th><th class="py-space-md px-space-md font-semibold">Aso Ebi</th></tr></thead><tbody class="divide-y divide-surface-container">' +
+      '<div class="' + CARD + ' overflow-hidden"><div class="relative overflow-x-auto"><table class="w-full text-left border-collapse min-w-[760px]"><thead><tr class="text-outline text-[12px] font-medium border-b border-surface-container"><th class="py-space-md px-space-md font-semibold">Guest &amp; contact</th><th class="py-space-md px-space-md font-semibold">Side</th><th class="py-space-md px-space-md font-semibold">Table</th><th class="py-space-md px-space-md font-semibold">RSVP</th><th class="py-space-md px-space-md font-semibold">Pass</th><th class="py-space-md px-space-md font-semibold">Aso Ebi</th></tr></thead><tbody class="divide-y divide-surface-container">' +
       (rows.length ? rows.map(function (r) {
         return '<tr class="hover:bg-surface-container-low/40"><td class="py-4 px-space-md"><div class="flex items-center gap-space-sm"><div class="w-9 h-9 rounded-full ' + (/VIP/.test(r[2]) ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container text-primary") + ' flex items-center justify-center font-bold text-label-sm">' + initials(r[0]) + '</div><div class="flex flex-col"><span class="font-body-sm text-body-sm font-semibold text-on-surface">' + esc(r[0]) + '</span><span class="font-label-sm text-label-sm text-outline tabular-nums">' + r[1] + "</span></div></div></td>" +
           '<td class="py-4 px-space-md"><span class="font-label-sm text-label-sm px-2 py-1 rounded-full font-bold ' + (/Bride/.test(r[2]) ? "bg-primary-fixed/50 text-primary-container" : /Groom/.test(r[2]) ? "bg-surface-container text-on-surface-variant" : "bg-secondary-container/50 text-on-secondary-container") + '">' + esc(r[2]) + "</span></td>" +
           '<td class="py-4 px-space-md font-body-sm text-body-sm text-on-surface">' + esc(r[3]) + "</td>" +
           '<td class="py-4 px-space-md"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm font-label-sm font-bold ' + R[r[4]][0] + '">' + ic(R[r[4]][1], "text-[14px]") + R[r[4]][2] + "</span></td>" +
+          '<td class="py-4 px-space-md">' + (r[4] === "declined" ? '<span class="pr-tier pr-t-none">—</span>' : tierChip(r[6])) + "</td>" +
           '<td class="py-4 px-space-md font-body-sm text-body-sm font-semibold ' + A[r[5]][0] + '">' + A[r[5]][1] + "</td></tr>";
-      }).join("") : '<tr><td colspan="5" class="py-space-2xl text-center font-body-sm text-body-sm text-outline">No guests match.</td></tr>') +
+      }).join("") : '<tr><td colspan="6" class="py-space-2xl text-center font-body-sm text-body-sm text-outline">No guests match.</td></tr>') +
       '</tbody></table></div><div class="px-space-md py-space-md bg-surface-container-low/50 border-t border-surface-container font-body-sm text-body-sm text-on-surface-variant">Showing ' + rows.length + " of " + st.invited + " guests</div></div>";
+  }
+
+  // ---------- Funding: Experience Passes, escrow wallet, Flash-Pay ----------
+  function tierCards(e, editable) {
+    return '<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">' + e.fund.tiers.map(function (t) {
+      var info = TIER_INFO[t.id], pct = t.cap ? Math.min(100, t.sold / t.cap * 100) : 0;
+      return '<div class="pr-tiercard"><div class="flex items-center justify-between gap-2">' + tierChip(t.id) + (editable ? '<span class="text-[12px] text-outline tabular-nums">' + t.sold + " / " + t.cap + " sold</span>" : '<span class="text-[12px] text-outline tabular-nums">' + t.cap + " passes</span>") + "</div>" +
+        '<div class="font-headline-sm text-headline-sm text-primary font-bold tabular-nums">' + naira(t.price) + "</div>" +
+        '<ul class="pr-perks">' + info.perks.map(function (p) { return "<li>" + esc(p) + "</li>"; }).join("") + "</ul>" +
+        (editable ? '<div class="flex flex-col gap-1 mt-auto"><div class="pr-meter thin"><i style="width:' + pct.toFixed(1) + '%"></i></div><span class="text-[13px] text-on-surface-variant tabular-nums"><b class="text-on-surface">' + short(t.price * t.sold) + "</b> raised</span></div>" : "") + "</div>";
+    }).join("") + "</div>";
+  }
+  function tabFunding(e) {
+    var f = fundOf(e), F = e.fund, rateTxt = (f.rate * 100).toFixed(1).replace(".0", "") + "%";
+    var planCard = '<section class="' + CARD + ' p-6 flex flex-col gap-3"><div class="flex items-center justify-between gap-2"><h2 class="text-[19px] font-bold text-on-surface">Plan</h2><span class="pr-tier pr-t-gold">' + esc(e.plan) + " · " + rateTxt + "</span></div>" +
+      '<p class="text-[14px] text-on-surface-variant">' + PLAN_NOTE[e.plan] + ". Party Riders takes " + rateTxt + " of passes and gifts. Nothing is charged upfront.</p>" +
+      '<label for="fund-plan" class="' + LABEL + '">Change plan</label><select id="fund-plan" data-act="eng-plan" data-ev="' + e.id + '" class="' + INPUT + '">' + planOptions(e.plan) + "</select></section>";
+    if (!f.on) {
+      var corp = e.type === "Corporate";
+      return '<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-xl items-start"><section class="min-w-0 xl:col-span-8 ' + CARD + ' p-6 sm:p-8 flex flex-col gap-5">' +
+          '<div class="flex flex-col gap-2"><span class="text-[13px] font-semibold text-secondary">Experience Passes · not launched</span><h2 class="text-[26px] leading-tight font-bold text-primary">' + (corp ? "This gala is paid for by the company." : "Let the guests fund " + esc(e.short) + ".") + "</h2>" +
+          '<p class="pr-lede">' + (corp ? "No passes are needed. The Gate still sends every invited guest a free one-time QR, so only people on the list get in and the caterer plates for the real headcount. You can still sell passes for plus-ones."
+            : "Guests buy a Silver, Gold or VIP pass, so the people celebrating help pay for the celebration. Prices below are suggested from this event's catering cost (the Jollof Index): Silver covers about two plates.") + "</p></div>" +
+          tierCards(e, false) +
+          '<div class="flex flex-wrap items-center justify-between gap-3 bg-surface-container-low rounded-2xl p-4"><div class="flex flex-col"><span class="' + LABEL + '">Suggested guest goal</span><span class="font-headline-sm text-headline-sm text-primary font-bold tabular-nums">' + naira(F.goal) + '</span><span class="text-[13px] text-outline">About two thirds of the ' + short(e.budget) + " budget. " + esc(e.client.short) + " covers the rest.</span></div>" +
+          '<button class="' + BTN_PRIMARY + '" data-act="fund-launch" data-ev="' + e.id + '">' + ic("rocket_launch", "text-[18px]") + (e.plan === "Standard" ? "Move to Premium and launch" : "Launch passes") + "</button></div></section>" +
+        '<aside class="min-w-0 xl:col-span-4 flex flex-col gap-space-lg">' + planCard + "</aside></div>";
+    }
+    var payRows = e.items.map(function (it) {
+      var amt = payAmount(it), paid = F.paid[it.id], a = apprFor(it.id), st;
+      if (paid) st = '<span class="pr-chip-ok">' + ic("lock", "text-[15px]") + "Paid · price locked</span>";
+      else if (it.status !== "confirmed") st = '<span class="pr-chip-muted">' + (a && a.status === "sent" ? "Waiting for " + esc(e.client.short) : "Book a vendor first") + "</span>";
+      else if (e.completed) st = '<span class="pr-chip-muted">Paid by the host</span>';
+      else if (f.wallet >= amt) st = '<button class="' + BTN_PRIMARY + ' pr-btn-sm" data-act="flash-pay" data-ev="' + e.id + '" data-id="' + it.id + '">' + ic("bolt", "text-[16px]") + "Flash-Pay</button>";
+      else st = '<span class="pr-chip-wait">Needs ' + short(amt - f.wallet) + " more</span>";
+      return '<tr><td class="py-3.5 px-space-md"><div class="flex items-center gap-space-sm"><span class="w-8 h-8 rounded-lg bg-secondary-container/30 text-secondary flex items-center justify-center shrink-0">' + ic(CAT_ICON[it.cat] || "category", "text-[18px]") + '</span><div class="flex flex-col min-w-0"><span class="font-body-sm text-body-sm font-semibold text-on-surface">' + esc(vendorName(it) || it.cat) + '</span><span class="font-label-sm text-label-sm text-outline">' + esc(it.cat) + "</span></div></div></td>" +
+        '<td class="py-3.5 px-space-md text-right font-body-sm text-body-sm font-semibold tabular-nums">' + naira(paid || amt) + '</td><td class="py-3.5 px-space-md text-right">' + st + "</td></tr>";
+    }).join("");
+    return '<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-xl items-start"><div class="min-w-0 xl:col-span-8 flex flex-col gap-space-lg">' +
+        '<section class="' + CARD + ' p-6 flex flex-col gap-5"><div class="flex flex-wrap items-start justify-between gap-3"><div class="flex flex-col gap-1"><span class="text-[13px] font-semibold text-secondary">Raised by guests</span><span class="pr-big tabular-nums">' + naira(f.raised) + '</span><span class="text-[14px] text-on-surface-variant tabular-nums">of ' + naira(f.goal) + " guest goal · " + Math.round(f.pct) + "%</span></div>" +
+          '<div class="flex flex-wrap gap-2"><button class="' + BTN_SOFT + '" data-act="copy" data-id="' + passLink(e) + '">' + ic("link", "text-[18px]") + "Copy pass link</button>" + (e.id === "adaeze" ? '<button class="' + BTN_SOFT + '" data-act="preview-rsvp">' + ic("visibility", "text-[18px]") + "Guest page</button>" : "") + "</div></div>" +
+          '<div class="pr-meter"><i style="width:' + f.pct.toFixed(1) + '%"></i></div>' +
+          '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">' + [["Passes sold", f.passes + " / " + f.cap], ["Average pass", f.passes ? naira(f.raised / f.passes) : "—"], ["Gifts & spraying", short(f.gifts)], [esc(e.client.short) + " covers", short(f.host)]].map(function (x) {
+            return '<div class="bg-surface-container-low rounded-2xl p-4 flex flex-col gap-0.5"><span class="' + LABEL + '">' + x[0] + '</span><span class="text-[17px] font-semibold text-on-surface tabular-nums">' + x[1] + "</span></div>";
+          }).join("") + "</div></section>" +
+        '<section class="flex flex-col gap-space-md"><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-[19px] font-bold text-on-surface">Experience Pass tiers</h2>' + (e.completed ? "" : '<button class="pr-link" data-act="fund-sim" data-ev="' + e.id + '">' + ic("add_shopping_cart", "text-[18px]") + "Demo: sell 10 passes</button>") + "</div>" + tierCards(e, true) + "</section>" +
+        '<section class="' + CARD + ' overflow-hidden"><div class="p-6 pb-2 flex flex-col gap-1"><h2 class="text-[19px] font-bold text-on-surface flex items-center gap-2">' + ic("bolt", "text-gold", true) + "Flash-Pay vendors</h2>" +
+          '<p class="text-[14px] text-on-surface-variant">Pay a confirmed vendor from pass money the day they are booked, before prices rise again. Each payment locks that vendor\'s quote.</p></div>' +
+          '<div class="relative overflow-x-auto"><table class="w-full text-left min-w-[520px]"><thead><tr class="text-outline text-[12px] font-medium border-b border-surface-container"><th class="py-space-sm px-space-md font-semibold">Vendor</th><th class="py-space-sm px-space-md font-semibold text-right">Amount</th><th class="py-space-sm px-space-md font-semibold text-right">Status</th></tr></thead><tbody class="divide-y divide-surface-container">' + payRows + "</tbody></table></div></section>" +
+      "</div>" +
+      '<aside class="min-w-0 xl:col-span-4 flex flex-col gap-space-lg"><section class="' + CARD + ' p-6 flex flex-col gap-2"><h2 class="text-[19px] font-bold text-on-surface">Event wallet</h2>' +
+          '<div class="pr-kv"><span>Raised from passes</span><b>' + naira(f.raised) + '</b></div><div class="pr-kv"><span>Party Riders fee (' + rateTxt + ')</span><b>−' + naira(f.feePasses) + '</b></div><div class="pr-kv"><span>Paid to vendors</span><b>−' + naira(f.paidOut) + '</b></div>' +
+          '<div class="pr-kv total"><span class="font-semibold text-primary">Ready for Flash-Pay</span><b class="text-primary">' + naira(f.wallet) + "</b></div>" +
+          '<div class="pr-callout mt-2">' + ic("redeem", "text-[20px]") + "<span>Gifts and digital spraying (" + naira(f.gifts) + ") go straight to " + esc(e.client.short) + ", not to vendors. Anything left in the wallet after the event joins them.</span></div></section>" +
+        planCard + "</aside></div>";
+  }
+
+  // ---------- Gate: the QR Digital Bouncer ----------
+  function issuedOf(e) {
+    var f = fundOf(e);
+    if (!f.on) return e.guests;
+    return e.id === "adaeze" ? Math.max(f.passes, S.guests.stats.attending) : f.passes;
+  }
+  function clock(n) { var m = 14 * 60 + n * 2, h = Math.floor(m / 60) % 24, mm = m % 60; return (h > 12 ? h - 12 : h) + ":" + (mm < 10 ? "0" : "") + mm + (h >= 12 ? " PM" : " AM"); }
+  function tabGate(e) {
+    var G = e.fund.gate, f = fundOf(e), issued = issuedOf(e), pl = plate(e), last = G.log[0];
+    var tiles = '<section class="grid grid-cols-2 xl:grid-cols-4 gap-5">' +
+      statTile("qr_code_2", "", f.on ? "QR passes issued" : "QR invites issued", issued, f.on ? "One scan each" : "Company-funded, no pass needed") +
+      statTile("how_to_reg", "", "Checked in", G.in, issued ? Math.round(G.in / issued * 100) + "% of passes" : "") +
+      statTile("block", "", "Turned away", G.out, "No valid pass") +
+      statTile("savings", "", "Saved at the gate", short(G.out * pl), "≈ " + naira(pl) + " a plate (Jollof Index)") + "</section>";
+    var res = last ? (last.ok ? '<div class="pr-scan ok">' + ic("check", "", true) + "</div>" : '<div class="pr-scan bad">' + ic("close", "", true) + "</div>") : '<div class="pr-scan">' + ic("qr_code_scanner") + "</div>";
+    var who = last ? '<div class="who">' + esc(last.ok ? last.name : "Entry refused") + '</div><div class="why">' + (last.ok ? (last.tier === "comp" ? "Family list" : TIER_INFO[last.tier].name + " pass") + " · meal token issued" : esc(last.why)) + "</div>"
+      : '<div class="who">Ready to scan</div><div class="why">' + (e.completed ? "This event is over. Final count below." : "Point the camera at a guest's pass") + "</div>";
+    var scanner = '<section class="pr-scanner"><div class="flex items-center justify-between w-full text-[12px] font-bold tracking-[0.08em] uppercase opacity-80"><span>Digital Bouncer</span><span>Gate 1 · ' + esc(e.short) + "</span></div>" + res + who +
+      '<div class="btns"><button class="go" data-act="gate-scan" data-ev="' + e.id + '"' + (e.completed || G.in >= issued ? " disabled" : "") + ">" + ic("qr_code_scanner", "text-[18px]") + "Scan a guest</button>" +
+      '<button data-act="gate-crash" data-ev="' + e.id + '"' + (e.completed ? " disabled" : "") + ">" + ic("person_off", "text-[18px]") + "No pass</button></div>" +
+      (e.completed ? "" : '<p class="text-[12px] opacity-70">Rehearsal mode. The gate goes live on ' + fmtDate(e.date) + ".</p>") + "</section>";
+    var log = G.log.length ? G.log.map(function (x) {
+      return '<div class="pr-log"><span class="dot ' + (x.ok ? "ok" : "bad") + '">' + ic(x.ok ? "check" : "close", "text-[18px]") + '</span><div class="flex-1 min-w-0"><div class="text-[15px] font-semibold text-on-surface truncate">' + esc(x.ok ? x.name : "Refused at the gate") + '</div><div class="text-[13px] text-outline">' + (x.ok ? (x.tier === "comp" ? "Family list" : TIER_INFO[x.tier].name + " pass") : esc(x.why)) + "</div></div>" + (x.ok ? tierChip(x.tier) : "") + '<span class="text-[12px] text-outline tabular-nums w-16 text-right">' + x.t + "</span></div>";
+    }).join("") : '<p class="py-4 text-[14px] text-outline">' + (e.completed ? G.in + " guests were checked in and " + G.out + " people without a pass were turned away." : "No scans yet. Try the scanner: scan a few guests, then someone without a pass.") + "</p>";
+    return tiles + '<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-xl items-start"><div class="min-w-0 xl:col-span-5 flex flex-col gap-space-lg">' + scanner +
+        '<div class="pr-callout plum">' + ic("verified_user", "text-[20px]") + "<span>Each pass is a one-time QR. A screenshot or a forwarded link fails the second time. Meal tokens are tied to the pass, so the caterer cooks for the people inside, not the crowd outside.</span></div></div>" +
+      '<section class="min-w-0 xl:col-span-7 ' + CARD + ' p-6 flex flex-col"><div class="flex items-center justify-between gap-2"><h2 class="text-[19px] font-bold text-on-surface">Gate log</h2><span class="text-[13px] text-outline">' + (G.in + G.out) + " scans</span></div>" + log + "</section></div>";
   }
 
   function tabApprovals(e) {
@@ -702,12 +900,12 @@
     return '<section class="' + CARD + ' p-space-lg flex flex-col gap-space-lg"><div class="flex items-center gap-space-sm">' + ic("receipt_long", "text-secondary text-headline-sm") + '<h2 class="font-title-md text-title-md text-primary font-bold">Financial &amp; attendance ledger</h2></div>' +
         '<div class="grid grid-cols-2 lg:grid-cols-4 gap-space-md">' +
           ledger("Approved budget", naira(e.budget), "Baseline", "") + ledger("Final actual spend", naira(actual), (diff >= 0 ? naira(diff) + " under plan" : naira(-diff) + " over plan"), diff >= 0 ? "text-tertiary" : "text-error") +
-          ledger("Verified turnout", c.verified + " / " + e.guests, Math.round(c.verified / e.guests * 100) + "% of guests", "") + ledger("Vendor rating", avg + " / 5", rated + " of " + used.length + " rated", "") + "</div></section>" +
+          ledger("Checked in at the gate", (e.fund.gate.in || c.verified) + " / " + e.guests, e.fund.gate.out + " turned away without a pass", "") + ledger("Vendor rating", avg + " / 5", rated + " of " + used.length + " rated", "") + "</div></section>" +
       '<div class="' + CARD + ' p-space-md flex flex-wrap items-center gap-space-md">' + stepper + "</div>" +
       '<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-xl items-start"><div class="min-w-0 xl:col-span-7 flex flex-col gap-space-xl">' +
         '<section class="' + CARD + ' p-space-lg flex flex-col gap-space-md"><div class="flex items-center gap-space-sm"><div class="w-10 h-10 rounded-xl bg-secondary-container/30 text-secondary flex items-center justify-center">' + ic("bookmark_added", "", true) + '</div><div><h3 class="font-title-md text-title-md text-primary font-bold">Save as reusable template</h3><p class="font-body-sm text-body-sm text-outline">The final plan and budget split become a starting point for the next event like this.</p></div></div>' +
           '<div class="flex flex-col gap-1"><label for="tpl-name" class="' + LABEL + '">Template name</label><input id="tpl-name" data-input="tpl-name" data-id="' + e.id + '" class="' + INPUT + '" value="' + esc(c.template) + '"></div>' +
-          '<label class="flex items-center gap-space-sm font-body-sm text-body-sm text-on-surface"><input type="checkbox" class="rounded text-primary-container focus:ring-primary" data-act="tpl-share" data-id="' + e.id + '"' + (c.share ? " checked" : "") + "> Share with the other planners</label></section>" +
+          '<label class="flex items-center gap-space-sm font-body-sm text-body-sm text-on-surface"><input type="checkbox" class="rounded text-primary-container focus:ring-primary" data-act="tpl-share" data-id="' + e.id + '"' + (c.share ? " checked" : "") + "> Share with the concierge team</label></section>" +
         '<section class="' + CARD + ' overflow-hidden"><div class="p-space-lg flex items-center justify-between gap-space-sm"><h3 class="font-title-md text-title-md text-primary font-bold">Cost reconciliation</h3><span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full font-bold ' + (diff >= 0 ? "bg-tertiary-fixed text-tertiary-container" : "bg-error-container text-on-error-container") + '">' + (diff >= 0 ? "Saved " + short(diff) : "Over " + short(-diff)) + "</span></div>" +
           '<div class="relative overflow-x-auto"><table class="w-full text-left min-w-[520px]"><thead><tr class="text-outline text-[12px] font-medium border-b border-surface-container"><th class="py-space-sm px-space-md font-semibold">Category &amp; partner</th><th class="py-space-sm px-space-md font-semibold text-right">Estimated</th><th class="py-space-sm px-space-md font-semibold text-right">Actual</th><th class="py-space-sm px-space-md font-semibold text-right">Variance</th></tr></thead><tbody class="divide-y divide-surface-container">' +
           e.items.map(function (i) {
@@ -773,7 +971,7 @@
 
   // ---------- Templates + New event ----------
   function viewTemplates() {
-    return pageHead("Studio library", "Templates", "Every closed event can become a template. Start a new event from any of these.", '<a class="' + BTN_GOLD + '" href="#new-event">' + ic("add_circle", "text-title-md") + "Create Event</a>") +
+    return pageHead("Concierge library", "Templates", "Every closed event can become a template. Start a new event from any of these.", '<a class="' + BTN_GOLD + '" href="#new-event">' + ic("add_circle", "text-title-md") + "Create Event</a>") +
       '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-lg" data-stagger>' + S.templates.map(function (t) { return tplCard(t, false); }).join("") + "</div>";
   }
   function tplCard(t, selectable) {
@@ -794,7 +992,7 @@
       var done = ne.step === 2 ? i < 2 : false, on = ne.step === 2 ? i === 2 : i < 2;
       return '<div class="flex items-center gap-space-sm px-space-md py-space-sm rounded-xl ' + (on ? "bg-surface-container-low" : "") + '"><span class="w-7 h-7 rounded-full flex items-center justify-center font-label-md text-label-md font-bold ' + (done ? "bg-tertiary text-on-tertiary" : on ? "bg-primary-container text-on-primary" : "bg-surface-container text-outline") + '">' + (done ? ic("check", "text-[16px]") : i + 1) + '</span><div class="flex flex-col"><span class="' + LABEL + '">Step ' + (i + 1) + '</span><span class="font-label-md text-label-md text-on-surface font-semibold">' + esc(s[0] + ": " + s[1]) + "</span></div></div>";
     }).join("") + "</div>";
-    var head = pageHead("Studio production engine", "Create Event from Curated Template", "Start from a proven blueprint with itemised budget, vendor categories and a WhatsApp invite for your client.", "") + stepper;
+    var head = pageHead("New event", "Start from a proven plan", "Pick a blueprint with an itemised budget and vendor categories. The host gets a WhatsApp invite to their portal, and you can launch Experience Passes once it exists.", "") + stepper;
     if (ne.step === 1) {
       var list = S.templates.filter(function (x) { return x.type === ne.type; });
       return head +
@@ -821,9 +1019,10 @@
       "</section>" +
       '<section class="min-w-0 xl:col-span-5 ' + CARD + ' p-space-lg flex flex-col gap-space-md"><div class="flex items-center justify-between"><h2 class="font-title-md text-title-md text-primary font-bold flex items-center gap-space-xs">' + ic("mark_chat_unread", "text-secondary") + 'Client host onboarding</h2><span class="bg-primary-fixed text-on-primary-fixed-variant font-label-sm text-label-sm px-2.5 py-1 rounded-full font-bold">Portal access</span></div>' +
         fld("ne-client", "Host name", "text", d.client, "e.g. Tolani Adewale") + fld("ne-phone", "Host WhatsApp", "tel", d.phone, "+234 …") +
-        '<div class="grid grid-cols-2 gap-3"><div class="flex flex-col gap-1"><label for="ne-pkg" class="' + LABEL + '">Package</label><select id="ne-pkg" class="' + INPUT + '">' + PKGS.map(function (p) { return "<option" + (p === (d.pkg || "Full planning") ? " selected" : "") + ">" + p + "</option>"; }).join("") + "</select></div>" + fld("ne-fee", "Planning fee (₦)", "number", d.fee || "", "2500000") + "</div>" +
+        '<div class="grid grid-cols-2 gap-3"><div class="flex flex-col gap-1"><label for="ne-pkg" class="' + LABEL + '">Plan</label><select id="ne-pkg" class="' + INPUT + '">' + planOptions(d.pkg || "Premium") + "</select></div>" + fld("ne-fee", "Concierge fee (₦)", "number", d.fee || "", "2500000") + "</div>" +
+        '<p class="text-[13px] text-outline">Experience Pass prices are suggested from the catering cost once the event exists. Launch them from the Funding tab.</p>' +
         '<label class="flex items-center gap-2 text-[14px] text-on-surface"><input type="checkbox" id="ne-invite" class="rounded text-plum focus:ring-plum" checked> Send the portal invite on WhatsApp now</label>' +
-        '<div class="flex flex-col gap-1"><span class="' + LABEL + '">WhatsApp invite preview</span><div class="bg-surface-container-low rounded-xl rounded-tl-none p-space-md font-body-sm text-body-sm text-on-surface">Hi ' + esc(first) + "! Your Party Riders portal for " + esc(d.name || "your celebration") + " is ready. Follow every booking and approve choices from your phone. — " + PLANNER.first + "</div></div>" +
+        '<div class="flex flex-col gap-1"><span class="' + LABEL + '">WhatsApp invite preview</span><div id="ne-bubble" class="bg-surface-container-low rounded-xl rounded-tl-none p-space-md font-body-sm text-body-sm text-on-surface">Hi ' + esc(first) + "! Your Party Riders portal for " + esc(d.name || "your celebration") + " is ready. Follow every booking, approve choices and watch your guests fund the day. — " + PLANNER.first + "</div></div>" +
         '<p id="ne-err" role="alert" class="font-body-sm text-body-sm text-error"></p>' +
         '<div class="flex flex-wrap justify-end gap-space-sm"><button type="button" class="' + BTN_SOFT + '" data-act="ne-back">Back</button><button type="submit" class="' + BTN + '">Create Event &amp; Launch Workspace' + ic("arrow_forward", "text-title-md") + "</button></div></section></form>";
   }
@@ -928,11 +1127,11 @@
     }
     return (ui.from ? previewBar(e.client.short + "'s portal") : "") +
       '<div class="min-h-screen bg-surface flex justify-center"><div class="relative w-full max-w-[440px] min-h-screen bg-surface sm:shadow-[0_0_60px_-30px_rgba(74,25,66,0.35)] flex flex-col">' +
-        '<header style="view-transition-name:pr-phead" class="sticky top-0 z-40 pr-glass border-b border-black/[0.05]"><div class="h-16 pr-gx flex items-center justify-between"><a href="#client-home" class="flex items-center gap-space-sm"><span class="w-9 h-9 rounded-xl bg-plum flex items-center justify-center text-gold shadow-[0_2px_8px_rgba(74,25,66,0.12)]">' + ic("celebration", "text-[20px]") + '</span><span class="flex flex-col"><span class="font-title-md text-title-md text-primary tracking-tight leading-tight">Party Riders</span><span class="font-label-sm text-label-sm text-secondary leading-none">' + esc(e.short) + '</span></span></a>' +
+        '<header style="view-transition-name:pr-phead" class="sticky top-0 z-40 pr-glass border-b border-black/[0.05]"><div class="h-16 pr-gx flex items-center justify-between"><a href="#client-home" class="flex items-center gap-space-sm"><span class="pr-mark">' + MARK + '</span><span class="flex flex-col"><span class="font-title-md text-title-md text-primary tracking-tight leading-tight">Party Riders</span><span class="font-label-sm text-label-sm text-secondary leading-none">' + esc(e.short) + '</span></span></a>' +
           '<span class="w-8 h-8 rounded-full bg-primary flex items-center justify-center" aria-label="Signed in as ' + esc(e.client.short) + '">' + ic("person", "text-on-primary text-[18px]") + "</span></div></header>" +
         '<main class="flex-1 pr-gx pt-6 pb-32 flex flex-col gap-5" data-view data-stagger>' + body + "</main>" +
         (tab === "welcome" ? "" : '<nav style="view-transition-name:pr-ptabs" class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-40 pr-glass border-t border-black/[0.05] grid grid-cols-3 pb-safe px-2" aria-label="Portal">' +
-          t("home", "home", "Home") + t("decisions", "task_alt", "Approvals", w.length) + t("budget", "account_balance_wallet", "Budget") + "</nav>") +
+          t("home", "home", "Home") + t("decisions", "task_alt", "Approvals", w.length) + t("budget", "account_balance_wallet", "Money") + "</nav>") +
       "</div></div>";
   }
   function previewBar(what) {
@@ -940,13 +1139,14 @@
   }
   function pHome(e, w) {
     var m = money(e), d = daysTo(e.date), pct = Math.round(m.confirmed / m.total * 100);
-    return '<section class="flex flex-col gap-2.5"><h1 class="font-headline-xl-mobile text-headline-xl-mobile text-primary tracking-tight">Good morning, ' + esc(e.client.short) + '</h1>' +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant flex flex-wrap items-center gap-1">Planning with <span class="font-title-md text-title-md text-primary font-semibold">' + PLANNER.name + '</span> <span class="font-label-sm text-label-sm text-secondary font-bold">(Lead Planner)</span></p>' +
+    return '<section class="flex flex-col gap-2.5"><h1 class="font-headline-xl-mobile text-headline-xl-mobile text-primary tracking-tight">Hello, ' + esc(e.client.short) + '</h1>' +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant flex flex-wrap items-center gap-1">Planning with <span class="font-title-md text-title-md text-primary font-semibold">' + PLANNER.name + '</span> <span class="font-label-sm text-label-sm text-secondary font-bold">(Party Riders concierge)</span></p>' +
         '<span class="inline-flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-full shadow-sm self-start">' + ic("location_on", "text-secondary text-[16px]") + '<span class="font-label-md text-label-md text-on-surface">' + fmtDate(e.date) + " • " + esc(e.venue) + '</span></span></section>' +
       '<section class="relative overflow-hidden rounded-xl bg-primary-container text-on-primary p-5 shadow-xl"><svg class="absolute -right-10 -bottom-10 w-52 h-52 text-secondary-container opacity-10 pointer-events-none" fill="currentColor" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,0 61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35"></polygon><circle cx="50" cy="50" fill="none" r="45" stroke="currentColor" stroke-dasharray="4 4" stroke-width="2"></circle></svg>' +
         '<div class="relative z-10 flex flex-col gap-4"><span class="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-white/15 text-white font-label-sm text-label-sm font-bold"><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>Countdown to reception</span>' +
           '<div class="flex items-baseline gap-2.5"><span class="font-display-lg-mobile text-display-lg-mobile font-bold tracking-tight text-gold leading-none tabular-nums">' + d + '</span><span class="font-headline-sm text-headline-sm text-on-primary/90 font-medium">days to go</span></div>' +
           '<div class="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2"><span class="flex items-center gap-2">' + ic("calendar_month", "text-secondary-container text-[18px]") + '<span class="font-body-sm text-body-sm">' + Math.ceil(d / 7) + ' weeks left</span></span><span class="flex items-center gap-2">' + ic("group", "text-secondary-container text-[18px]") + '<span class="font-body-sm text-body-sm font-medium">' + e.guests + " guests</span></span></div></div></section>" +
+      pFunding(e) +
       (w.length ? '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3.5"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-secondary"></span><h2 class="font-headline-sm text-headline-sm text-primary">Decisions waiting for you</h2></div><span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold">' + w.length + "</span></div>" +
         w.map(function (a) {
           var it = itemOf(e, a.item), lo = Math.min.apply(null, a.options.map(function (o) { return o.price; }));
@@ -962,13 +1162,13 @@
       '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3"><div class="flex items-start justify-between"><div class="flex flex-col"><span class="font-label-sm text-label-sm text-secondary font-bold">Treasury</span><h2 class="font-headline-sm text-headline-sm text-primary">Budget at a glance</h2></div><div class="text-right"><span class="font-label-sm text-label-sm text-outline">Cap</span><div class="font-title-md text-title-md text-primary font-bold tabular-nums">' + naira(e.budget) + "</div></div></div>" +
         '<div class="grid grid-cols-2 gap-2 bg-surface-container-low rounded-lg p-3"><div><span class="font-label-sm text-label-sm text-outline">Committed (' + Math.round(m.pct) + '%)</span><div class="font-headline-sm text-headline-sm text-primary font-bold tabular-nums">' + naira(m.committed) + '</div></div><div><span class="font-label-sm text-label-sm text-outline">Available</span><div class="font-headline-sm text-headline-sm text-secondary font-bold tabular-nums">' + naira(m.remaining) + "</div></div></div>" +
         '<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-primary-container rounded-full" style="width:' + m.pct.toFixed(1) + '%"></div></div><a href="#client-budget" class="w-full text-center py-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container font-label-md text-label-md text-primary font-semibold">View full budget</a></section>' +
-      pFamily(e) + '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3"><h2 class="font-headline-sm text-headline-sm text-primary">From your planner</h2>' + S.activity.slice(0, 4).map(function (x) { return '<div class="flex gap-3">' + ic(x.icon, "text-secondary text-[20px] mt-0.5") + '<div class="flex flex-col"><span class="font-body-sm text-body-sm text-on-surface">' + esc(x.text) + '</span><span class="font-label-sm text-label-sm text-outline">' + esc(x.when) + "</span></div></div>"; }).join("") +
+      pFamily(e) + '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3"><h2 class="font-headline-sm text-headline-sm text-primary">From your concierge</h2>' + S.activity.slice(0, 4).map(function (x) { return '<div class="flex gap-3">' + ic(x.icon, "text-secondary text-[20px] mt-0.5") + '<div class="flex flex-col"><span class="font-body-sm text-body-sm text-on-surface">' + esc(x.text) + '</span><span class="font-label-sm text-label-sm text-outline">' + esc(x.when) + "</span></div></div>"; }).join("") +
         '<div class="flex items-center justify-between gap-2 bg-surface-container-low rounded-xl p-3 mt-1"><span class="flex flex-col"><span class="font-label-md text-label-md text-on-surface font-semibold">Message ' + PLANNER.first + ' on WhatsApp</span><span class="font-body-sm text-body-sm text-on-surface-variant select-all tabular-nums">' + PLANNER.phone + '</span></span><button class="font-label-md text-label-md text-tertiary font-bold" data-act="copy" data-id="' + PLANNER.phone + '">Copy</button></div></section>';
   }
   function pWelcome(e) {
     return '<section class="relative rounded-[28px] overflow-hidden h-72 pr-soft">' + photo(e.img, "absolute inset-0 w-full h-full", "celebration", "") + '<div class="absolute inset-0 bg-gradient-to-t from-[#000000]/80 to-transparent"></div><div class="absolute bottom-0 p-6 text-white flex flex-col gap-1"><span class="text-[14px] font-semibold text-gold">' + fmtDate(e.date, true) + '</span><h1 class="text-[30px] leading-tight font-bold tracking-[-0.03em]">' + esc(e.name) + "</h1></div></section>" +
       '<section class="flex flex-col gap-3"><div class="flex items-center gap-3">' + photo("planner-portrait", "w-12 h-12 rounded-full", "person", "") + '<p class="text-[15px] text-on-surface"><b>' + PLANNER.name + "</b> invited you to follow your celebration on Party Riders.</p></div>" +
-        '<ul class="flex flex-col gap-3 text-[15px] text-on-surface-variant">' + [["event_available", "See every booking as it's confirmed"], ["task_alt", "Approve vendors and quotes from your phone"], ["account_balance_wallet", "Track your budget in naira, live"], ["group", "Bring in family to follow along"]].map(function (x) { return '<li class="flex gap-3 items-center">' + ic(x[0], "text-plum text-[22px]") + x[1] + "</li>"; }).join("") + "</ul></section>" +
+        '<ul class="flex flex-col gap-3 text-[15px] text-on-surface-variant">' + [["local_activity", "Watch your guests fund the day with Experience Passes"], ["task_alt", "Approve vendors and quotes from your phone"], ["bolt", "See vendors paid early with Flash-Pay, prices locked"], ["group", "Bring in family to follow along"]].map(function (x) { return '<li class="flex gap-3 items-center">' + ic(x[0], "text-plum text-[22px]") + x[1] + "</li>"; }).join("") + "</ul></section>" +
       '<button class="' + BTN + ' w-full py-3 text-[16px]" data-act="accept-invite" data-ev="' + e.id + '">Accept &amp; open my portal</button><p class="text-center text-[12px] text-outline">Signing in with ' + esc(e.client.phone) + " on WhatsApp</p>";
   }
   function pFamily(e) {
@@ -995,7 +1195,7 @@
     var it = itemOf(e, a.item);
     var head = '<a href="#client-decisions" class="self-start flex items-center gap-1 font-label-md text-label-md text-primary font-semibold">' + ic("arrow_back", "text-title-md") + "Approvals</a>" +
       '<div class="flex flex-col gap-1"><span class="font-label-sm text-label-sm text-secondary font-bold">Decision · ' + esc(it.cat) + '</span><h1 class="font-headline-xl-mobile text-headline-xl-mobile text-primary tracking-tight">' + esc(it.name) + '</h1><p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(e.short) + " · " + e.guests + " guests · Cap " + naira(it.est) + "</p><p class=\"text-[13px] text-outline mt-1\">Can approve: " + [e.client.short].concat(e.members.filter(function (m) { return m.role === "approver"; }).map(function (m) { return m.name.split(" ")[0]; })).map(esc).join(", ") + "</p></div>" +
-      '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3"><div class="flex items-center gap-3">' + photo("planner-portrait", "w-11 h-11 rounded-full", "person", "") + '<div class="flex-1"><div class="font-title-md text-title-md text-on-surface font-semibold">' + PLANNER.name + '</div><div class="font-label-sm text-label-sm text-secondary font-bold">Lead Planner</div></div></div><p class="font-body-sm text-body-sm text-on-surface-variant italic">“' + esc(a.note) + "”</p></section>";
+      '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3"><div class="flex items-center gap-3">' + photo("planner-portrait", "w-11 h-11 rounded-full", "person", "") + '<div class="flex-1"><div class="font-title-md text-title-md text-on-surface font-semibold">' + PLANNER.name + '</div><div class="font-label-sm text-label-sm text-secondary font-bold">' + PLANNER.role + '</div></div></div><p class="font-body-sm text-body-sm text-on-surface-variant italic">“' + esc(a.note) + "”</p></section>";
     if (a.status === "approved") {
       var o = a.options[a.chosen], v = vendor(o.vendor);
       return head + '<section class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col items-center gap-2 text-center">' + ic("verified", "text-[44px] text-tertiary", true) + '<h2 class="font-headline-sm text-headline-sm text-primary">' + esc(v.name) + " is locked in</h2><p class=\"font-body-sm text-body-sm text-on-surface-variant\">" + naira(o.price) + ". " + PLANNER.first + " has been notified and will share the contract.</p></section>" +
@@ -1005,7 +1205,7 @@
       var v = vendor(o.vendor), rec = a.rec === idx, conf = ui.confirm && ui.confirm.id === a.id && ui.confirm.idx === idx, pts = o.points || v.points;
       return '<article class="bg-surface-container-lowest rounded-[22px] pr-soft overflow-hidden ' + (rec ? "ring-2 ring-gold" : "") + '">' +
         '<div class="relative h-40">' + photo(o.img || v.img, "absolute inset-0 w-full h-full", CAT_ICON[v.cat], v.name) + "</div>" +
-        '<div class="p-4 flex flex-col gap-3"><div class="flex items-start justify-between gap-2"><div class="flex flex-col"><span class="self-start font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold mb-1 ' + (rec ? "bg-gold text-white" : "bg-surface-container text-on-surface-variant") + '">' + (rec ? "★ Planner's pick" : "Option " + String.fromCharCode(65 + idx)) + '</span><h3 class="font-headline-sm text-headline-sm text-primary font-bold">' + esc(v.name) + '</h3><span class="flex items-center gap-1 font-label-md text-label-md text-on-surface">' + ic("star", "text-[16px] text-gold", true) + v.rating + ' <span class="text-outline font-normal">(' + v.jobs + " weddings with us)</span></span></div></div>" +
+        '<div class="p-4 flex flex-col gap-3"><div class="flex items-start justify-between gap-2"><div class="flex flex-col"><span class="self-start font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold mb-1 ' + (rec ? "bg-gold text-white" : "bg-surface-container text-on-surface-variant") + '">' + (rec ? "★ Concierge pick" : "Option " + String.fromCharCode(65 + idx)) + '</span><h3 class="font-headline-sm text-headline-sm text-primary font-bold">' + esc(v.name) + '</h3><span class="flex items-center gap-1 font-label-md text-label-md text-on-surface">' + ic("star", "text-[16px] text-gold", true) + v.rating + ' <span class="text-outline font-normal">(' + v.jobs + " weddings with us)</span></span></div></div>" +
           '<div class="flex items-end justify-between bg-surface-container-low rounded-lg px-3 py-2"><span class="font-currency-md text-currency-md text-primary font-bold tabular-nums">' + naira(o.price) + '</span><span class="font-label-md text-label-md text-outline tabular-nums">' + naira(Math.round(o.price / e.guests)) + " / guest</span></div>" +
           '<ul class="flex flex-col gap-1.5">' + pts.map(function (p) { return '<li class="flex gap-2 font-body-sm text-body-sm text-on-surface-variant">' + ic("check_circle", "text-[16px] text-tertiary") + esc(p) + "</li>"; }).join("") + "</ul>" +
           (conf ? '<div class="border-t border-dashed border-outline-variant pt-3 flex flex-col gap-2"><p class="font-body-sm text-body-sm text-on-surface font-semibold">Approve ' + esc(v.name) + " for " + naira(o.price) + '?</p><div class="flex gap-2"><button class="' + BTN + ' flex-1" data-act="approve" data-id="' + a.id + '" data-idx="' + idx + '">' + ic("lock", "text-title-md") + 'Yes, approve</button><button class="' + BTN_SOFT + '" data-act="cancel-confirm">Cancel</button></div></div>'
@@ -1015,47 +1215,73 @@
       '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-2"><div class="flex justify-between font-label-md text-label-md"><span class="text-on-surface font-semibold">Budget cap for ' + esc(it.cat.toLowerCase()) + '</span><span class="text-primary font-bold tabular-nums">' + naira(it.est) + "</span></div>" +
         '<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-primary-container rounded-full" style="width:100%"></div></div><p class="font-label-sm text-label-sm text-outline">Both quotes ' + (a.options.every(function (o) { return o.price <= it.est; }) ? "fit inside the cap." : "were compared against the cap by " + PLANNER.first + ".") + "</p></section>";
   }
+  function pFunding(e) {
+    var f = fundOf(e);
+    if (!f.on) return '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-2"><span class="font-label-sm text-label-sm text-secondary font-bold">Experience Passes</span><h2 class="font-headline-sm text-headline-sm text-primary">Not launched yet</h2><p class="font-body-sm text-body-sm text-on-surface-variant">' + PLANNER.first + " will set up Silver, Gold and VIP passes so your guests help fund the day.</p></section>";
+    return '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3"><div class="flex items-start justify-between gap-2"><div class="flex flex-col"><span class="font-label-sm text-label-sm text-secondary font-bold">Funded by your guests</span><span class="pr-big tabular-nums" style="font-size:32px">' + naira(f.raised) + '</span></div><span class="pr-tier pr-t-gold">' + Math.round(f.pct) + "%</span></div>" +
+      '<div class="pr-meter"><i style="width:' + f.pct.toFixed(1) + '%"></i></div><div class="flex justify-between text-[13px] text-outline tabular-nums"><span>' + f.passes + " passes sold</span><span>Goal " + short(f.goal) + "</span></div>" +
+      '<div class="grid grid-cols-2 gap-2"><div class="bg-surface-container-low rounded-lg p-3"><span class="font-label-sm text-label-sm text-outline">Paid to vendors</span><div class="font-title-md text-title-md text-primary font-bold tabular-nums">' + short(f.paidOut) + '</div></div><div class="bg-surface-container-low rounded-lg p-3"><span class="font-label-sm text-label-sm text-outline">Gifts for you</span><div class="font-title-md text-title-md text-primary font-bold tabular-nums">' + short(f.gifts) + "</div></div></div>" +
+      '<a href="#client-budget" class="w-full text-center py-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container font-label-md text-label-md text-primary font-semibold">See where the money goes</a></section>';
+  }
   function pBudget(e) {
-    var m = money(e);
-    return '<h1 class="font-headline-xl-mobile text-headline-xl-mobile text-primary tracking-tight">Budget</h1>' +
+    var m = money(e), f = fundOf(e);
+    return '<h1 class="font-headline-xl-mobile text-headline-xl-mobile text-primary tracking-tight">Money</h1>' +
+      (f.on ? '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-1"><span class="font-label-sm text-label-sm text-outline font-semibold">Your event wallet</span>' +
+        '<div class="pr-kv"><span>Raised from ' + f.passes + ' passes</span><b>' + naira(f.raised) + '</b></div><div class="pr-kv"><span>Party Riders fee (' + (f.rate * 100).toFixed(1).replace(".0", "") + '%)</span><b>−' + naira(f.feePasses) + '</b></div><div class="pr-kv"><span>Paid to vendors with Flash-Pay</span><b>−' + naira(f.paidOut) + '</b></div><div class="pr-kv total"><span class="font-semibold text-primary">Left for vendors</span><b class="text-primary">' + naira(f.wallet) + "</b></div>" +
+        '<p class="text-[13px] text-outline pt-2">Gifts and spraying (' + naira(f.gifts) + ") are yours and go to your savings after the event.</p></section>" : "") +
       '<section class="bg-surface-container-lowest rounded-[22px] p-5 pr-soft flex flex-col gap-3"><span class="font-label-sm text-label-sm text-outline font-semibold">Committed</span><span class="font-currency-display text-currency-display text-primary font-bold tabular-nums">' + naira(m.committed) + '</span><div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-primary-container rounded-full" style="width:' + m.pct.toFixed(1) + '%"></div></div><div class="flex justify-between font-label-md text-label-md text-outline tabular-nums"><span>' + Math.round(m.pct) + "% of " + naira(e.budget) + "</span><span>" + naira(m.remaining) + " left</span></div></section>" +
       '<section class="bg-surface-container-lowest rounded-[22px] pr-soft divide-y divide-surface-container">' + e.items.map(function (i) {
-        return '<div class="flex items-center justify-between gap-3 p-4"><span class="flex items-center gap-3 min-w-0"><span class="w-9 h-9 rounded-lg bg-secondary-container/30 text-secondary flex items-center justify-center shrink-0">' + ic(CAT_ICON[i.cat], "text-[18px]") + '</span><span class="flex flex-col min-w-0"><span class="font-body-sm text-body-sm font-semibold text-on-surface">' + esc(i.cat) + '</span><span class="font-label-sm text-label-sm text-outline truncate">' + (vendorName(i) ? esc(vendorName(i)) : "Not chosen yet") + '</span></span></span><span class="flex flex-col items-end"><span class="font-body-sm text-body-sm font-bold text-primary tabular-nums">' + naira(i.actual != null ? i.actual : i.est) + "</span>" + statusChip(i) + "</span></div>";
+        return '<div class="flex items-center justify-between gap-3 p-4"><span class="flex items-center gap-3 min-w-0"><span class="w-9 h-9 rounded-lg bg-secondary-container/30 text-secondary flex items-center justify-center shrink-0">' + ic(CAT_ICON[i.cat], "text-[18px]") + '</span><span class="flex flex-col min-w-0"><span class="font-body-sm text-body-sm font-semibold text-on-surface">' + esc(i.cat) + '</span><span class="font-label-sm text-label-sm text-outline truncate">' + (vendorName(i) ? esc(vendorName(i)) : "Not chosen yet") + '</span></span></span><span class="flex flex-col items-end"><span class="font-body-sm text-body-sm font-bold text-primary tabular-nums">' + naira(i.actual != null ? i.actual : i.est) + "</span>" + (e.fund.paid[i.id] ? '<span class="pr-chip-ok">' + ic("bolt", "text-[14px]") + "Paid</span>" : statusChip(i)) + "</span></div>";
       }).join("") + "</section>";
   }
 
-  // ---------- Guest RSVP ----------
+  // ---------- Guest page: buy an Experience Pass, get a QR, spray the couple ----------
+  function sprayBlock(r, title) {
+    return '<section class="flex flex-col gap-3"><div class="flex items-center justify-between gap-2"><h2 class="font-title-md text-title-md text-primary font-bold">' + title + "</h2>" + (r.sprayed ? '<span class="pr-chip-ok">' + naira(r.sprayed) + " sent</span>" : "") + "</div>" +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">Digital spraying is the legal way to spray. It goes straight to the couple\'s savings, and they see your name on the screen at the reception.</p>' +
+      '<div class="pr-amts">' + [2000, 5000, 10000, 20000].map(function (n) { return '<button type="button" class="pr-amt" data-act="spray" data-n="' + n + '">' + short(n) + "</button>"; }).join("") + "</div></section>";
+  }
   function viewRSVP() {
-    var r = S.rsvp || {}, step = r.step || "invite", inner;
+    var e = ev("adaeze"), r = S.rsvp || {}, step = r.step || "invite", inner;
+    var tier = r.tier || "gold", seats = r.seats || 1, T = e.fund.tiers.filter(function (t) { return t.id === tier; })[0];
     if (step === "pass") {
-      inner = '<div class="rounded-2xl bg-primary-container text-on-primary p-5 flex flex-col gap-4 shadow-xl"><div class="flex items-center justify-between"><span class="flex items-center gap-2"><span class="w-8 h-8 rounded-full bg-secondary-container text-primary flex items-center justify-center font-bold text-label-sm">A&amp;T</span><span class="flex flex-col"><span class="font-label-sm text-label-sm text-secondary-container font-bold">Party Riders</span><span class="font-label-md text-label-md">Wedding guest pass</span></span></span><span class="font-label-sm text-label-sm px-2 py-1 rounded-full bg-white/15 text-white font-bold">Guest</span></div>' +
-        '<div><span class="font-label-sm text-label-sm text-on-primary/70">Ceremony &amp; banquet</span><h2 class="font-headline-md text-headline-md text-secondary-container font-bold">Adaeze &amp; Tunde</h2><p class="font-body-sm text-body-sm">Saturday, 12 Dec 2026 · 11:00 AM</p></div>' +
-        '<div class="grid grid-cols-2 gap-3 border-t border-on-primary/20 pt-3"><div><span class="font-label-sm text-label-sm text-on-primary/70">Guest</span><div class="font-title-md text-title-md font-semibold">' + esc(r.name) + '</div></div><div class="text-right"><span class="font-label-sm text-label-sm text-on-primary/70">Seats</span><div class="font-title-md text-title-md font-semibold">' + r.seats + '</div></div><div><span class="font-label-sm text-label-sm text-on-primary/70">Venue</span><div class="font-body-sm text-body-sm font-semibold">Eko Pearl Event Centre</div></div><div class="text-right"><span class="font-label-sm text-label-sm text-on-primary/70">Pass ref</span><div class="font-title-md text-title-md font-bold text-secondary-container">' + esc(r.code) + "</div></div></div>" +
-        '<p class="font-body-sm text-body-sm text-on-primary/80 bg-white/10 rounded-lg p-3">Show this pass at the door. Your table number arrives on WhatsApp a week before.</p></div>' +
-        (r.aso ? '<div class="bg-surface-container-low rounded-xl p-4 font-body-sm text-body-sm text-on-surface"><b>Aso Ebi:</b> plum and champagne gold. The family will send payment details to ' + esc(r.phone) + ".</div>" : "") +
+      var pt = TIER_INFO[r.tier];
+      inner = '<div class="pr-pass"><div class="flex items-start justify-between gap-3"><div><small>Experience Pass</small><h3>Adaeze &amp; Tunde</h3><div class="meta">Sat 12 Dec · Eko Pearl, Lekki</div></div>' + tierChip(r.tier) + "</div>" +
+          '<div class="body"><div class="pr-qr">' + qrSvg(r.code) + '</div><div class="rows"><div><span>Guest</span><b>' + esc(r.name) + "</b></div><div><span>Seats</span><b>" + r.seats + "</b></div><div><span>Meal tokens</span><b>" + r.seats + (r.seats > 1 ? " plates" : " plate") + "</b></div><div><span>Pass ref</span><b>" + esc(r.code) + "</b></div></div></div></div>" +
+        '<ul class="pr-perks">' + pt.perks.map(function (p) { return "<li>" + esc(p) + "</li>"; }).join("") + "<li>Show the QR at the gate. It works once, so don't share it.</li></ul>" +
+        (r.aso ? '<div class="bg-surface-container-low rounded-xl p-4 font-body-sm text-body-sm text-on-surface"><b>Aso Ebi:</b> royal plum and champagne gold. Collect it at the gate with this pass.</div>' : "") +
+        sprayBlock(r, "Spray the couple") +
         '<button class="' + BTN_SOFT + '" data-act="rsvp-reset">Change my reply</button>';
     } else if (step === "declined") {
-      inner = '<div class="flex flex-col items-center text-center gap-2 py-4">' + ic("favorite", "text-[40px] text-secondary", true) + '<h2 class="font-headline-sm text-headline-sm text-primary">Thank you for letting us know</h2><p class="font-body-sm text-body-sm text-on-surface-variant">Adaeze and Tunde will miss you and appreciate your wishes.</p></div><button class="' + BTN_SOFT + '" data-act="rsvp-reset">Change my reply</button>';
-    } else {
-      var acc = step === "details";
-      inner = '<div class="grid grid-cols-2 gap-3" role="group" aria-label="Will you attend?">' +
-          '<button data-act="rsvp-yes" aria-pressed="' + acc + '" class="p-3.5 rounded-lg flex flex-col items-center gap-1 border-2 transition-all ' + (acc ? "bg-primary text-on-primary border-primary" : "bg-surface-container-lowest border-outline-variant text-on-surface") + '">' + ic("celebration", "text-[22px]") + '<span class="font-label-md text-label-md font-bold">Joyfully accept</span></button>' +
-          '<button data-act="rsvp-no" aria-pressed="false" class="p-3.5 rounded-lg flex flex-col items-center gap-1 border-2 bg-surface-container-lowest border-outline-variant text-on-surface">' + ic("mail", "text-[22px]") + '<span class="font-label-md text-label-md font-bold">Regretfully decline</span></button></div>' +
-        (acc ? '<form id="rsvp-form" class="flex flex-col gap-3" novalidate><div class="flex flex-col gap-1"><label for="rv-name" class="' + LABEL + '">Your name</label><input id="rv-name" autocomplete="name" class="' + INPUT + '" placeholder="As it should appear on your pass" value="' + esc(r.name || "") + '"></div>' +
+      inner = '<div class="flex flex-col items-center text-center gap-2 py-2">' + ic("favorite", "text-[40px] text-secondary", true) + '<h2 class="font-headline-sm text-headline-sm text-primary">Thank you for letting us know</h2><p class="font-body-sm text-body-sm text-on-surface-variant">Adaeze and Tunde will miss you and appreciate your wishes.</p></div>' +
+        sprayBlock(r, "Send a gift instead") + '<button class="' + BTN_SOFT + '" data-act="rsvp-reset">Change my reply</button>';
+    } else if (step === "details") {
+      inner = '<section class="flex flex-col gap-2" role="group" aria-label="Choose your pass"><h2 class="font-title-md text-title-md text-primary font-bold">Choose your pass</h2>' + e.fund.tiers.map(function (t) {
+          var left = t.cap - t.sold, info = TIER_INFO[t.id];
+          return '<button type="button" class="pr-pick" data-act="rsvp-tier" data-id="' + t.id + '" aria-pressed="' + (t.id === tier) + '"' + (left < 1 ? " disabled" : "") + '><span class="nm">' + tierChip(t.id) + '</span><span class="pr">' + naira(t.price) + '</span><span class="ds">' + esc(info.perks.join(" · ")) + '</span><span class="left">' + (left < 1 ? "Sold out" : left + " left") + "</span></button>";
+        }).join("") + "</section>" +
+        '<form id="rsvp-form" class="flex flex-col gap-3" novalidate><div class="flex flex-col gap-1"><label for="rv-name" class="' + LABEL + '">Your name</label><input id="rv-name" autocomplete="name" class="' + INPUT + '" placeholder="As it should appear on your pass" value="' + esc(r.name || "") + '"></div>' +
           '<div class="flex flex-col gap-1"><label for="rv-phone" class="' + LABEL + '">WhatsApp number</label><input id="rv-phone" type="tel" autocomplete="tel" class="' + INPUT + '" placeholder="+234 …" value="' + esc(r.phone || "") + '"></div>' +
-          '<div class="flex items-center justify-between"><span class="' + LABEL + '">Seats</span><div class="inline-flex rounded-lg overflow-hidden border border-outline-variant">' + [1, 2].map(function (n) { var on = (r.seats || 1) === n; return '<button type="button" data-act="rsvp-seats" data-n="' + n + '" aria-pressed="' + on + '" class="px-5 py-2 font-label-md text-label-md font-bold ' + (on ? "bg-primary text-on-primary" : "bg-surface-container-lowest text-on-surface") + '">' + n + "</button>"; }).join("") + "</div></div>" +
-          '<label class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface"><input type="checkbox" id="rv-aso" class="rounded text-primary-container focus:ring-primary"' + (r.aso ? " checked" : "") + "> I'd like to order Aso Ebi</label>" +
-          '<p id="rv-err" role="alert" class="font-body-sm text-body-sm text-error"></p><button type="submit" class="' + BTN + ' w-full py-3">' + ic("check_circle", "text-title-md") + "Confirm RSVP</button></form>" : "");
+          '<div class="flex items-center justify-between"><span class="' + LABEL + '">Passes</span><div class="inline-flex rounded-lg overflow-hidden border border-outline-variant">' + [1, 2].map(function (n) { var on = seats === n; return '<button type="button" data-act="rsvp-seats" data-n="' + n + '" aria-pressed="' + on + '" class="px-5 py-2 font-label-md text-label-md font-bold ' + (on ? "bg-primary text-on-primary" : "bg-surface-container-lowest text-on-surface") + '">' + n + "</button>"; }).join("") + "</div></div>" +
+          '<label class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface"><input type="checkbox" id="rv-aso" class="rounded text-primary-container focus:ring-primary"' + (r.aso ? " checked" : "") + "> Collect my Aso Ebi at the gate</label>" +
+          '<p id="rv-err" role="alert" class="font-body-sm text-body-sm text-error"></p><button type="submit" class="' + BTN_PRIMARY + ' w-full py-3 text-[16px]">' + ic("lock", "text-title-md") + "Pay " + naira(T.price * seats) + "</button>" +
+          '<p class="text-center text-[12px] text-outline">Card, bank transfer or USSD. Your payment goes to the couple\'s vendors, not to cash at the door.</p></form>' +
+        '<button class="pr-link self-center" data-act="rsvp-no">I can\'t make it</button>';
+    } else {
+      inner = '<div class="pr-callout plum">' + ic("local_activity", "text-[20px]") + "<span>Adaeze and Tunde are hosting without debt. Instead of a free plate, guests buy an Experience Pass. It is your entry QR, your seat and your meal token.</span></div>" +
+        '<div class="grid grid-cols-2 gap-3" role="group" aria-label="Will you attend?">' +
+          '<button data-act="rsvp-yes" class="p-3.5 rounded-lg flex flex-col items-center gap-1 border-2 bg-primary text-on-primary border-primary">' + ic("celebration", "text-[22px]") + '<span class="font-label-md text-label-md font-bold">I\'ll be there</span><span class="text-[12px] opacity-80">Passes from ' + short(e.fund.tiers[0].price) + "</span></button>" +
+          '<button data-act="rsvp-no" class="p-3.5 rounded-lg flex flex-col items-center gap-1 border-2 bg-surface-container-lowest border-outline-variant text-on-surface">' + ic("mail", "text-[22px]") + '<span class="font-label-md text-label-md font-bold">I can\'t make it</span><span class="text-[12px] text-outline">Send a gift instead</span></button></div>';
     }
-    return (ui.from ? previewBar("the guest invitation") : "") +
+    return (ui.from ? previewBar("the guest page") : "") +
       '<div class="min-h-screen bg-surface-container-low flex justify-center pr-gx py-space-lg"><article class="w-full max-w-[440px] bg-surface rounded-2xl shadow-xl overflow-hidden self-start" data-view>' +
         '<header class="relative bg-gradient-to-b from-surface-container-lowest to-surface-container-low px-6 pt-10 pb-8 text-center flex flex-col items-center gap-2"><div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-secondary-container to-primary"></div>' +
-          '<span class="font-label-sm text-label-sm tracking-[0.2em] text-secondary font-bold">Together with their families</span><h1 class="font-display-lg-mobile text-display-lg-mobile text-primary font-bold leading-tight">Adaeze <span class="text-secondary font-semibold">&amp;</span> Tunde</h1><p class="font-body-md text-body-md text-on-surface-variant">invite you to celebrate their wedding</p></header>' +
+          '<span class="font-label-sm text-label-sm tracking-[0.2em] text-secondary font-bold">Together with their families</span><h1 class="font-display-lg-mobile text-display-lg-mobile text-primary font-bold leading-tight">Adaeze <span class="text-gold font-semibold">&amp;</span> Tunde</h1><p class="font-body-md text-body-md text-on-surface-variant">invite you to celebrate their wedding</p></header>' +
         '<div class="px-6 py-6 flex flex-col gap-5"><div class="flex flex-col gap-3">' +
           '<div class="flex gap-3">' + ic("calendar_month", "text-secondary") + '<div><div class="font-title-md text-title-md text-on-surface font-semibold">Saturday, 12 December 2026</div><div class="font-body-sm text-body-sm text-outline">Church service 11:00 AM · Reception 2:00 PM</div></div></div>' +
-          '<div class="flex gap-3">' + ic("location_on", "text-secondary") + '<div><div class="font-title-md text-title-md text-on-surface font-semibold">Eko Pearl Event Centre</div><div class="font-body-sm text-body-sm text-outline">Lekki, Lagos</div></div></div>' +
-          '<div class="flex gap-3">' + ic("styler", "text-secondary") + '<div class="flex flex-col gap-2"><div class="font-title-md text-title-md text-on-surface font-semibold">Aso Ebi: royal plum &amp; champagne gold</div><div class="flex gap-2"><span class="w-7 h-7 rounded-full bg-primary-container ring-2 ring-surface-container-lowest shadow"></span><span class="w-7 h-7 rounded-full bg-[#E9D3A3] ring-2 ring-surface-container-lowest shadow"></span><span class="w-7 h-7 rounded-full bg-secondary ring-2 ring-surface-container-lowest shadow"></span></div></div></div>' +
-        '</div><div class="h-px bg-surface-container"></div>' + inner + '<p class="text-center font-label-sm text-label-sm text-outline">Kindly reply by 21 November 2026</p></div></article></div>';
+          '<div class="flex gap-3">' + ic("location_on", "text-secondary") + '<div><div class="font-title-md text-title-md text-on-surface font-semibold">Eko Pearl Event Centre</div><div class="font-body-sm text-body-sm text-outline">Lekki, Lagos · directions sent with your pass</div></div></div>' +
+          '<div class="flex gap-3">' + ic("styler", "text-secondary") + '<div class="flex flex-col gap-2"><div class="font-title-md text-title-md text-on-surface font-semibold">Aso Ebi: royal plum &amp; champagne gold</div><div class="flex gap-2"><span class="w-7 h-7 rounded-full bg-primary-container ring-2 ring-surface-container-lowest shadow"></span><span class="w-7 h-7 rounded-full bg-[#E9D3A3] ring-2 ring-surface-container-lowest shadow"></span><span class="w-7 h-7 rounded-full bg-gold ring-2 ring-surface-container-lowest shadow"></span></div></div></div>' +
+        '</div><div class="h-px bg-surface-container"></div>' + inner + '<p class="text-center font-label-sm text-label-sm text-outline">Kindly reply by 21 November 2026 · Powered by Party Riders</p></div></article></div>';
   }
 
   // ---------- Interaction ----------
@@ -1159,10 +1385,49 @@
       case "ne-tpl": ui.newEvent.tpl = id; render(); break;
       case "ne-next": ui.newEvent.step = 2; render(true); break;
       case "ne-back": ui.newEvent.form = readNE(); ui.newEvent.step = 1; render(true); break;
-      case "rsvp-yes": S.rsvp = Object.assign({}, S.rsvp, { step: "details", seats: (S.rsvp && S.rsvp.seats) || 1 }); save(); render(); break;
-      case "rsvp-no": S.rsvp = { step: "declined" }; save(); render(); break;
+      case "rsvp-yes": S.rsvp = Object.assign({}, S.rsvp, { step: "details", seats: (S.rsvp && S.rsvp.seats) || 1, tier: (S.rsvp && S.rsvp.tier) || "gold" }); save(); render(); break;
+      case "rsvp-no": S.rsvp = { step: "declined", sprayed: (S.rsvp && S.rsvp.sprayed) || 0 }; save(); render(); break;
       case "rsvp-seats": keepRSVP(); S.rsvp.seats = +el.dataset.n; save(); render(); break;
-      case "rsvp-reset": S.rsvp = null; save(); render(); break;
+      case "rsvp-tier": keepRSVP(); S.rsvp.tier = id; save(); render(); break;
+      case "rsvp-reset":
+        var rr = S.rsvp || {}, re0 = ev("adaeze");
+        if (rr.step === "pass") { // undo the purchase so the numbers stay honest
+          re0.fund.tiers.forEach(function (t) { if (t.id === rr.tier) t.sold = Math.max(0, t.sold - rr.seats); });
+          S.guests.stats.attending -= rr.seats; S.guests.stats.pending += 1;
+          S.guests.rows = S.guests.rows.filter(function (g) { return g[1] !== rr.phone; });
+        }
+        S.rsvp = { sprayed: rr.sprayed || 0 }; save(); render(); break;
+      case "spray":
+        var amt0 = +el.dataset.n, se0 = ev("adaeze"); se0.fund.gifts += amt0; S.rsvp = S.rsvp || {}; S.rsvp.sprayed = (S.rsvp.sprayed || 0) + amt0;
+        S.activity.unshift({ icon: "redeem", text: (S.rsvp.name ? S.rsvp.name.split(" ")[0] : "A guest") + " sprayed " + naira(amt0) + " digitally", when: "Just now" });
+        save(); render(); toast(naira(amt0) + " sprayed on Adaeze & Tunde", "redeem"); break;
+      case "flash-pay":
+        var fe = ev(el.dataset.ev), fit = itemOf(fe, id), famt = payAmount(fit), ff = fundOf(fe);
+        if (ff.wallet < famt) { toast("Not enough pass money yet for this payment", "hourglass_top"); break; }
+        fe.fund.paid[id] = famt;
+        S.tasks.forEach(function (x) { if (x.go === "event-" + fe.id + "-funding" && /Flash-Pay/.test(x.text) && x.text.indexOf(vendorName(fit)) >= 0) x.done = true; });
+        S.activity.unshift({ icon: "bolt", text: "Flash-Pay sent " + naira(famt) + " to " + vendorName(fit) + ". Price locked", when: "Just now" });
+        save(); render(); toast("Paid " + naira(famt) + " to " + vendorName(fit) + ". Price locked.", "bolt"); break;
+      case "fund-launch":
+        var le0 = ev(el.dataset.ev); if (le0.plan === "Standard") le0.plan = "Premium";
+        le0.fund.on = true;
+        S.tasks.forEach(function (x) { if (x.go === "event-" + le0.id + "-funding" && /Launch/.test(x.text)) x.done = true; });
+        save(); render(); toast("Passes are live. Share " + passLink(le0) + " with the guests", "rocket_launch"); break;
+      case "fund-sim":
+        var me0 = ev(el.dataset.ev), plan0 = [6, 3, 1], sold0 = 0;
+        me0.fund.tiers.forEach(function (t, i) { var k = Math.min(plan0[i], t.cap - t.sold); t.sold += k; sold0 += k; });
+        if (me0.id === "adaeze") { S.guests.stats.attending += sold0; S.guests.stats.pending = Math.max(0, S.guests.stats.pending - sold0); }
+        save(); render(); toast(sold0 ? sold0 + " passes sold from the event link" : "Every pass is sold out", "local_activity"); break;
+      case "gate-scan":
+        var ge = ev(el.dataset.ev), G0 = ge.fund.gate, tiers0 = ge.fund.tiers.filter(function (t) { return t.sold > 0; });
+        var pick0 = ge.fund.on && tiers0.length ? tiers0[(G0.in * 7 + 3) % tiers0.length].id : "comp";
+        if (ge.id === "adaeze" && G0.in % 9 === 4) pick0 = "comp";
+        G0.in++; G0.log.unshift({ ok: true, name: GATE_NAMES[(G0.in - 1) % GATE_NAMES.length], tier: pick0, t: clock(G0.in + G0.out) });
+        G0.log = G0.log.slice(0, 12); save(); render(); break;
+      case "gate-crash":
+        var ce0 = ev(el.dataset.ev), G1 = ce0.fund.gate;
+        G1.out++; G1.log.unshift({ ok: false, why: CRASH_REASONS[(G1.out - 1) % CRASH_REASONS.length], t: clock(G1.in + G1.out) });
+        G1.log = G1.log.slice(0, 12); save(); render(); toast("Turned away. " + naira(plate(ce0)) + " plate saved", "block"); break;
       case "reset": try { localStorage.removeItem(KEY); } catch (x) { /* ignore */ } S = seed(); enrich(); ui.itemCat = "All"; ui.evFilter = "All"; ui.newEvent = { step: 1, type: "Wedding", tpl: "owambe" }; go("events"); toast("Sample data restored", "restart_alt"); break;
     }
   });
@@ -1183,7 +1448,7 @@
     else if (k === "note") { apprById(el.dataset.id).note = el.value; save(); }
     else if (k === "deadline") { apprById(el.dataset.id).deadline = el.value; save(); }
     else if (k === "quote") { apprById(el.dataset.id).options[+el.dataset.idx].price = +el.value || 0; save(); }
-    else if (k === "ne-field") { if (el.id === "ne-name" || el.id === "ne-client") { var bubble = document.querySelector("#ne-form .bg-\\[\\#E7F7EE\\]"); var d = readNE(); if (bubble) bubble.textContent = "Hi " + ((d.client || "your client").split(" ")[0]) + "! Your Party Riders portal for " + (d.name || "your celebration") + " is ready. Follow every booking and approve choices from your phone. — " + PLANNER.first; } }
+    else if (k === "ne-field") { if (el.id === "ne-name" || el.id === "ne-client") { var bubble = document.getElementById("ne-bubble"); var d = readNE(); if (bubble) bubble.textContent = "Hi " + ((d.client || "your client").split(" ")[0]) + "! Your Party Riders portal for " + (d.name || "your celebration") + " is ready. Follow every booking, approve choices and watch your guests fund the day. — " + PLANNER.first; } }
     else if (k === "tpl-name") { var te = ev(el.dataset.id), was = !!te.closeout.template.trim(); te.closeout.template = el.value; save(); if (was !== !!el.value.trim()) { render(); keep(); } }
     else if (k === "lessons") { var le = ev(el.dataset.id), was2 = !!le.closeout.lessons.trim(); le.closeout.lessons = el.value; save(); if (was2 !== !!el.value.trim()) { render(); keep(); } }
   });
@@ -1191,7 +1456,7 @@
     var el = evt.target;
     if (el.dataset.input === "quote") render();
     if (el.dataset.act === "member-role") { var me = ev(el.dataset.ev); me.members.forEach(function (m) { if (m.id === el.dataset.id) m.role = el.value; }); save(); toast("Access updated", "manage_accounts"); }
-    if (el.dataset.act === "eng-pkg") { ev(el.dataset.ev).eng.pkg = el.value; save(); toast("Package updated", "workspace_premium"); }
+    if (el.dataset.act === "eng-plan") { ev(el.dataset.ev).plan = el.value; save(); render(); toast("Plan changed to " + el.value, "workspace_premium"); }
     if (el.dataset.input === "eng-fee") { ev(el.dataset.ev).eng.fee = +el.value || 0; save(); render(); }
   });
   document.addEventListener("submit", function (evt) {
@@ -1230,16 +1495,23 @@
       if (!d.name || !d.client || !d.date || !d.venue || !(+d.guests > 0) || !(+d.budget > 0)) { err.textContent = "Fill in every field. Guests and budget need numbers."; ui.newEvent.form = d; return; }
       var t = S.templates.filter(function (x) { return x.id === ui.newEvent.tpl; })[0], id = "e" + Date.now().toString(36), type = ui.newEvent.type;
       S.events.push({ id: id, name: d.name, short: d.name.replace(/'s (Wedding|Birthday).*$/, ""), type: type, date: d.date, venue: d.venue, guests: +d.guests, budget: +d.budget, img: t ? t.img : null,
-        client: { name: d.client, short: d.client.split(" ")[0], phone: d.phone || "—", invite: d.invite ? "sent" : "none", sent: d.invite ? "3 Nov" : "" }, members: [], notes: [], eng: { pkg: d.pkg || "Full planning", fee: +d.fee || 0, paid: 0 },
+        client: { name: d.client, short: d.client.split(" ")[0], phone: d.phone || "—", invite: d.invite ? "sent" : "none", sent: d.invite ? "3 Nov" : "" }, members: [], notes: [], plan: PLANS[d.pkg] ? d.pkg : "Premium", eng: { fee: +d.fee || 0, paid: 0 },
         items: (t ? t.parts : [["Venue", "Venue", .3]]).map(function (p, i) { return { id: id + "-" + i, cat: p[0], name: p[1], vendor: null, venue: "", est: Math.round(+d.budget * p[2] / 1000) * 1000, actual: null, status: "unbooked" }; }) });
+      var ne0 = ev(id); ne0.fund = suggestFund(ne0);
       S.tasks.unshift({ id: "t" + id, text: "Find vendors for " + d.name, event: id, go: "event-" + id + "-plan", due: "Today", time: "", pri: "", done: false });
       ui.newEvent = { step: 1, type: "Wedding", tpl: "owambe" };
       save(); go("event-" + id + "-plan"); toast("Event created" + (d.invite ? ". Portal invite sent to " + d.client.split(" ")[0] : ""));
     } else if (f.id === "rsvp-form") {
       var nm = document.getElementById("rv-name").value.trim(), ph = document.getElementById("rv-phone").value.trim();
       if (!nm || ph.replace(/\D/g, "").length < 10) { document.getElementById("rv-err").textContent = !nm ? "Add your name for the pass." : "Add a WhatsApp number we can reach you on."; return; }
-      S.rsvp = { step: "pass", name: nm, phone: ph, seats: S.rsvp.seats || 1, aso: document.getElementById("rv-aso").checked, code: "PR-LAG-" + (100 + Math.floor(Math.random() * 899)) };
-      save(); render(true);
+      var pe0 = ev("adaeze"), tid = S.rsvp.tier || "gold", n0 = S.rsvp.seats || 1, tt = pe0.fund.tiers.filter(function (t) { return t.id === tid; })[0];
+      if (tt.cap - tt.sold < n0) { document.getElementById("rv-err").textContent = "Only " + (tt.cap - tt.sold) + " " + TIER_INFO[tid].name + " passes are left."; return; }
+      tt.sold += n0; S.guests.stats.attending += n0; S.guests.stats.pending = Math.max(0, S.guests.stats.pending - 1);
+      var aso0 = document.getElementById("rv-aso").checked;
+      S.guests.rows.unshift([nm, ph, "Guest", "Unassigned", "attending", aso0 ? "unpaid" : "none", tid]);
+      S.activity.unshift({ icon: "local_activity", text: nm.split(" ")[0] + " bought " + (n0 > 1 ? n0 + " " : "a ") + TIER_INFO[tid].name + " pass" + (n0 > 1 ? "es" : "") + " (" + naira(tt.price * n0) + ")", when: "Just now" });
+      S.rsvp = { step: "pass", name: nm, phone: ph, seats: n0, tier: tid, aso: aso0, sprayed: S.rsvp.sprayed || 0, code: "PR-LAG-" + (100 + Math.floor(Math.random() * 899)) };
+      save(); render(true); toast("Paid " + naira(tt.price * n0) + ". Your pass is ready", "local_activity");
     }
   });
   render(true);
